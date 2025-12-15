@@ -1,126 +1,200 @@
 # Momento Frontend
 
-Frontend for the Momento Social Network, built with Next.js, React, TypeScript, and Tailwind CSS.
+![Momento](https://img.shields.io/badge/Momento-Social%20Network-6366f1)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38B2AC?logo=tailwind-css)
 
-## Overview
+**Social network client for Momento – posts, reviews, real-time messaging, AI assistant, and Unsplash integration.**
 
-Momento is a responsive social network that supports anonymous browsing, role-based access (USER, ADMIN), rich posting, and reviews.  
-This repository contains the client-side application powered by the Next.js App Router and React Query.
+Momento Frontend is the client-side application for the Momento social network. It provides a responsive experience for browsing feeds, creating posts, following users, writing reviews, chatting in real time, and using the Momento AI assistant. Built with the Next.js App Router, React Query, and Socket.io for live updates.
 
-## Tech Stack
-
-- Next.js (App Router), React, TypeScript
-- Tailwind CSS for styling
-- React Query (TanStack Query) for server state
-- Axios for API calls
-- React Hook Form + Zod for forms and validation
-- Lucide React icons
+---
 
 ## Features
 
-### User and Access Model
+### Core
 
-- Sign-up and sign-in with email and password
-- Role selection at registration (USER, ADMIN)
-- Session-based authentication with protected routes
-- Anonymous users can browse most public pages with limited content
+- **Authentication** – Sign up, sign in (email or username), sign out. Session-based auth with protected routes. Role-based access (USER, ADMIN).
+- **Home & Explore** – Infinite-scroll home feed, explore with filters (latest, oldest, most liked, most reviewed), and search.
+- **Posts** – Create, edit, delete posts with image upload, caption, location, and tags. Like, save, and view post-level reviews with star ratings.
+- **Profiles** – Own and others’ profiles with posts, followers, following, saved posts, and liked posts.
+- **Notifications** – In-app notifications for likes, follows, and reviews; unread count and mark-as-read.
 
-### Core Social Features
+### Real-Time & AI
 
-- Home feed with dynamic posts and anonymous vs authenticated views
-- Create, edit, and delete posts with image upload and tags
-- Likes, saves, and post-level review system with star ratings
-- User profiles (own and others) with grouped sections for posts, followers, following, saved, and reviews
-- Explore page with filters (latest, oldest, most liked, most reviewed)
-- Search functionality for posts
-- Personalized feed showing posts from followed users
-- In-app notifications for likes, follows, and reviews with unread badge counts and mark-as-read
+- **Direct messages** – User-to-user chat via Socket.io. Conversation list, typing indicators, read receipts. Messaging limited to mutually followed users.
+- **Momento AI** – In-app AI assistant (OpenRouter) for caption ideas, post suggestions, and engagement tips. Chat history persisted via backend.
 
-### External Content Integration
+### External & Admin
 
-- Unsplash-powered search and details pages
-- Ability to review external photos and link those reviews back to user profiles and the details page
+- **Unsplash** – Search and details for external photos; review external content and link reviews to profiles.
+- **Admin** – Admin-only dashboard: view all users and posts, delete users (except self) and posts.
 
-### Admin Features
+### UI
 
-- Admin dashboard route restricted to ADMIN role
-- View all users and delete user accounts (except own)
-- View all posts and delete any post
+- Responsive layout: bottom nav (mobile), sidebar (desktop/tablet). Dark theme, shared components (cards, dialogs, forms).
 
-### UI and Responsiveness
+---
 
-- Fully responsive layout for mobile, tablet, and desktop
-- Icon-only sidebar on tablet, full sidebar on desktop, bottom navigation on mobile
-- Consistent dark theme and professional styling across authentication, home, profile, details, and admin pages
+## Tech Stack
 
-## Project Structure (High Level)
+| Layer | Tech |
+| ----- | ----- |
+| **Framework** | Next.js 16 (App Router), React 19, TypeScript |
+| **Styling** | Tailwind CSS, Radix UI–based components (shadcn-style) |
+| **Data** | TanStack Query (React Query), Axios API client |
+| **Forms** | React Hook Form, Zod validation |
+| **Real-time** | Socket.io client |
+| **UI** | Lucide icons, react-markdown, emoji-picker-react |
+
+---
+
+## Project Structure
 
 ```
-app/
-  (auth)/          Authentication (sign-in, sign-up)
-  (momento)/       Main application (home, explore, posts, profile, admin, about, privacy)
-components/
-  shared/          Shared UI (cards, navigation, dialogs, etc.)
-  forms/           Post, profile, review, and auth forms
-lib/
-  api/             Axios API client
-  react-query/     Query and mutation hooks
-  utils.ts         Shared utilities
-context/
-  AuthContext.tsx  Authentication context
+momento-frontend/
+├── app/
+│   ├── (auth)/                 # Auth route group
+│   │   ├── layout.tsx
+│   │   ├── sign-in/page.tsx
+│   │   └── sign-up/page.tsx
+│   ├── (momento)/              # Main app route group
+│   │   ├── layout.tsx          # Sidebar, topbar, bottombar
+│   │   ├── page.tsx            # Home feed
+│   │   ├── explore/page.tsx
+│   │   ├── create-post/        # Post creation
+│   │   ├── posts/[id]/         # Post detail
+│   │   ├── profile/[id]/       # User profile, liked posts
+│   │   ├── saved/page.tsx
+│   │   ├── messages/           # Chat list
+│   │   ├── messages/[userId]/  # Conversation with user
+│   │   ├── notifications/
+│   │   ├── admin/              # Admin dashboard
+│   │   ├── all-users/
+│   │   ├── details/[id]/       # Unsplash detail
+│   │   ├── about/, privacy/
+│   │   └── update-profile/[id]/, update-post/[id]/
+│   ├── layout.tsx
+│   └── page.tsx                # Landing
+├── components/
+│   ├── shared/                 # PostCard, GridPostList, Topbar, etc.
+│   ├── forms/                  # PostForm
+│   ├── messages/               # ChatHeader, MessageBubble, ChatInput
+│   └── ui/                     # Button, Input, Avatar, Toast, etc.
+├── context/
+│   └── AuthContext.tsx         # Auth state, current user
+├── hooks/
+│   ├── useSocket.ts            # Socket.io lifecycle, listeners
+│   └── useDebounce.ts
+├── lib/
+│   ├── api/
+│   │   ├── client.ts           # Axios client, all API calls
+│   │   └── socket.ts           # Socket.io connection
+│   ├── react-query/            # Queries, mutations, QueryProvider
+│   ├── types/                  # Shared types, errors
+│   └── validation/             # Zod schemas
+├── constants/
+├── types/
+└── public/assets/
 ```
 
-## Getting Started
+- **`lib/api/client.ts`** – Central API layer. All HTTP calls (auth, users, posts, saves, follows, reviews, notifications, conversations, Momento AI, external, admin) use the same Axios instance with `withCredentials` for session cookies.
+- **`lib/api/socket.ts`** + **`useSocket`** – Socket.io connection tied to the current user; listeners for new messages, typing, read receipts, and notifications; React Query invalidation on events.
+- **`app/(momento)/layout.tsx`** – Renders shared layout (sidebar, topbar, bottombar) and wraps children with providers.
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
-- Node.js 18 or higher
-- Running backend API (see `momento-backend`)
+- **Node.js** 18+
+- Running **Momento Backend** (see [momento-backend](https://github.com/nirajmehta960/momento-backend))
 
 ### Installation
 
-```bash
-git clone https://github.com/nirajmehta960/momento-frontend
-cd momento-frontend
-npm install
-```
+1. **Clone and install**
 
-Create `.env.local`:
+   ```bash
+   git clone https://github.com/nirajmehta960/momento-frontend.git
+   cd momento-frontend
+   npm install
+   ```
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:4000/api
-```
+2. **Environment**
 
-Run the development server:
+   Create `.env.local`:
 
-```bash
-npm run dev
-```
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:4000/api
+   ```
 
-The app is available at `http://localhost:3000`.
+   The app expects the backend at `NEXT_PUBLIC_API_URL` (with `/api` suffix). Session cookies are sent cross-origin when backend `CLIENT_URL` matches the frontend origin.
 
-## Project Links
+3. **Run**
 
-- Frontend repository: [`momento-frontend`](https://github.com/nirajmehta960/momento-frontend)
-- Backend repository: [`momento-backend`](https://github.com/nirajmehta960/momento-backend)
+   ```bash
+   npm run dev
+   ```
+
+   App runs at [http://localhost:3000](http://localhost:3000).
+
+---
 
 ## Environment Variables
 
-| Variable                       | Description                  |
-| ------------------------------ | ---------------------------- |
-| `NEXT_PUBLIC_API_URL`          | Backend API base URL         |
+| Variable | Description |
+| -------- | ----------- |
+| `NEXT_PUBLIC_API_URL` | Backend API base URL (e.g. `http://localhost:4000/api`) |
+
+---
 
 ## Scripts
 
-- `npm run dev` – start development server
-- `npm run build` – build for production
-- `npm start` – run production build
-- `npm run lint` – run lint checks
+| Command | Description |
+| ------- | ----------- |
+| `npm run dev` | Start Next.js dev server |
+| `npm run build` | Production build |
+| `npm start` | Run production server |
+| `npm run lint` | Run ESLint |
+
+---
+
+## Deployment
+
+Deploy to any Node.js platform (e.g. Vercel, Netlify, Railway):
+
+1. Set `NEXT_PUBLIC_API_URL` to your backend API URL.
+2. Ensure backend `CLIENT_URL` matches the frontend origin (for CORS and cookies).
+3. Use `npm run build` and `npm start`, or the platform’s Next.js preset.
+
+---
+
+## Contributing
+
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-feature`).
+3. Commit changes (`git commit -m 'Add your feature'`).
+4. Push and open a Pull Request (`git push origin feature/your-feature`).
+
+Follow existing patterns, use TypeScript strictly, and run `npm run lint`.
+
+---
 
 ## License
 
-ISC
+This project is licensed under the **MIT License** – you can use, copy, modify, merge, publish, distribute, sublicense, and sell copies, under the terms of the [MIT license](LICENSE). See [LICENSE](LICENSE) for the full text.
 
-## Notes
+---
 
-This repository is part of an academic project and is intended to be used together with the `momento-backend` API server.
+## Authors
+
+**Niraj Mehta** – [GitHub @nirajmehta960](https://github.com/nirajmehta960)
+
+---
+
+## Related
+
+- **Backend API:** [momento-backend](https://github.com/nirajmehta960/momento-backend)
