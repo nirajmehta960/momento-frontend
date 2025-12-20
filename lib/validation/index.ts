@@ -44,6 +44,7 @@ export const PostValidation = z.object({
 // ============================================================
 
 export const ProfileValidation = z.object({
+  file: z.custom<File[]>(),
   name: z.string().min(3, { message: "Name must be at least 3 characters" }),
   username: z
     .string()

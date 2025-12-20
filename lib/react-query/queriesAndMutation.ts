@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 import {
   createUserAccount,
   signInAccount,
@@ -34,6 +39,18 @@ import {
   getNotifications,
   getUnreadNotificationCount,
   markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  getInfinitePosts,
+  searchPosts,
+  searchExternal,
+  getExternalDetails,
+  deleteUserAccount,
+  getAllUsersAdmin,
+  deleteUserAdmin,
+  deletePostAdmin,
+  getReviewsByPost,
+  getReviewsByExternalContent,
 } from "@/lib/api/client";
 import type {
   INewUser,
@@ -97,10 +114,10 @@ export const useGetUserById = (userId: string) => {
   });
 };
 
-export const useGetUsers = (params?: { role?: string; name?: string }) => {
+export const useGetUsers = (limit?: number) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.GET_USERS, params],
-    queryFn: () => getUsers(params),
+    queryKey: [QUERY_KEYS.GET_USERS],
+    queryFn: () => getUsers(limit ? { limit } : undefined),
   });
 };
 
@@ -185,6 +202,57 @@ export const useGetLikedPosts = (userId: string) => {
   });
 };
 
+export const useGetPosts = (sortBy: string = "latest") => {
+  return useInfiniteQuery({
+    queryKey: [QUERY_KEYS.GET_INFINITE_POSTS, sortBy],
+    queryFn: ({ pageParam }) => getInfinitePosts({ pageParam, sortBy }) as any,
+    getNextPageParam: (lastPage: any, allPages: any[]) => {
+      if (lastPage && lastPage.documents.length === 0) {
+        return undefined;
+      }
+      if (lastPage && lastPage.documents.length < 10) {
+        return undefined;
+      }
+      return allPages.length;
+    },
+    initialPageParam: 0,
+  });
+};
+
+export const useSearchPosts = (searchTerm: string) => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.SEARCH_POSTS, searchTerm],
+    queryFn: () => searchPosts(searchTerm),
+    enabled: !!searchTerm,
+  });
+};
+
+export const useSearchExternal = (query: string, page?: number) => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.SEARCH_EXTERNAL, query, page],
+    queryFn: () => searchExternal(query, page),
+    enabled: !!query,
+  });
+};
+
+export const useGetExternalDetails = (id: string) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.GET_EXTERNAL_DETAILS(id),
+    queryFn: () => getExternalDetails(id),
+    enabled: !!id,
+  });
+};
+
+export const useDeleteUserAccount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => deleteUserAccount(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+    },
+  });
+};
+
 // ============================================================
 // POST MUTATIONS
 // ============================================================
@@ -219,7 +287,8 @@ export const useUpdatePost = () => {
 export const useDeletePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: deletePost,
+    mutationFn: ({ postId, imageId }: { postId: string; imageId?: string }) =>
+      deletePost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
@@ -291,10 +360,28 @@ export const useGetPostReviews = (postId: string) => {
   });
 };
 
+export const useGetReviewsByPost = (postId: string) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.GET_REVIEWS_BY_POST(postId),
+    queryFn: () => getReviewsByPost(postId),
+    enabled: !!postId,
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+};
+
 export const useGetExternalReviews = (externalContentId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_EXTERNAL_REVIEWS(externalContentId),
     queryFn: () => getExternalReviews(externalContentId),
+    enabled: !!externalContentId,
+  });
+};
+
+export const useGetReviewsByExternalContent = (externalContentId: string) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.GET_REVIEWS_BY_EXTERNAL(externalContentId),
+    queryFn: () => getReviewsByExternalContent(externalContentId),
     enabled: !!externalContentId,
   });
 };
@@ -383,13 +470,16 @@ export const useGetFollowing = (userId: string) => {
 export const useFollowUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: followUser,
-    onSuccess: (data) => {
+    mutationFn: (followingId: string) => followUser(followingId),
+    onSuccess: (data, followingId) => {
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.GET_FOLLOWERS(data.following._id),
+        queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.GET_FOLLOWING(data.follower._id),
+        queryKey: [QUERY_KEYS.GET_FOLLOWING],
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.GET_USER_BY_ID(followingId),
       });
     },
   });
@@ -398,10 +488,10 @@ export const useFollowUser = () => {
 export const useUnfollowUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: unfollowUser,
-    onSuccess: () => {
+    mutationFn: (followingId: string) => unfollowUser(followingId),
+    onSuccess: (data, followingId) => {
       queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.GET_FOLLOWERS],
+        queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_FOLLOWING],
@@ -418,6 +508,9 @@ export const useGetNotifications = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
     queryFn: getNotifications,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 };
 
@@ -425,6 +518,9 @@ export const useGetUnreadNotificationCount = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
     queryFn: getUnreadNotificationCount,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 };
 
@@ -435,13 +531,86 @@ export const useGetUnreadNotificationCount = () => {
 export const useMarkNotificationAsRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: markNotificationAsRead,
+    mutationFn: (notificationId: string) =>
+      markNotificationAsRead(notificationId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
       });
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
+      });
+    },
+  });
+};
+
+export const useMarkAllNotificationsAsRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: markAllNotificationsAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
+      });
+    },
+  });
+};
+
+export const useDeleteNotification = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (notificationId: string) => deleteNotification(notificationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
+      });
+    },
+  });
+};
+
+// ============================================================
+// ADMIN
+// ============================================================
+
+export const useGetAllUsersAdmin = () => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.GET_USERS, "admin"],
+    queryFn: getAllUsersAdmin,
+  });
+};
+
+export const useDeleteUserAdmin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => deleteUserAdmin(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_USERS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_CURRENT_USER],
+      });
+    },
+  });
+};
+
+export const useDeletePostAdmin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, imageId }: { postId: string; imageId?: string }) =>
+      deletePostAdmin(postId, imageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
       });
     },
   });

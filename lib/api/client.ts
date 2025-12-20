@@ -67,9 +67,26 @@ export const getUserById = async (userId: string): Promise<IUser> => {
 export const getUsers = async (params?: {
   role?: string;
   name?: string;
-}): Promise<IUser[]> => {
-  const response = await apiClient.get<IUser[]>("/users", { params });
-  return response.data;
+  limit?: number;
+}) => {
+  try {
+    const response = await apiClient.get("/users", { params });
+    const users = response.data.documents || response.data || [];
+    return {
+      documents: users.map((user: any) => ({
+        $id: user._id || user.id,
+        id: user._id || user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        imageUrl: user.imageUrl || "",
+        bio: user.bio || "",
+        role: user.role || "USER",
+      })),
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
 // Update user
@@ -139,6 +156,80 @@ export const getRecentPosts = async (params?: {
 }): Promise<IPostsResponse> => {
   const response = await apiClient.get<IPostsResponse>("/posts", { params });
   return response.data;
+};
+
+// Get infinite posts for pagination
+export const getInfinitePosts = async ({
+  pageParam = 0,
+  sortBy = "latest",
+}: {
+  pageParam?: number;
+  sortBy?: string;
+}) => {
+  try {
+    const limit = 10;
+    const skip = pageParam * limit;
+    const response = await apiClient.get(
+      `/posts?limit=${limit}&skip=${skip}&sortBy=${sortBy}`
+    );
+    const posts = response.data.documents || response.data || [];
+    return {
+      documents: posts.map((post: any) => ({
+        $id: post._id || post.id,
+        id: post._id || post.id,
+        creator: {
+          $id: post.creator?._id || post.creator?.id,
+          id: post.creator?._id || post.creator?.id,
+          name: post.creator?.name,
+          username: post.creator?.username,
+          imageUrl: post.creator?.imageUrl || "",
+        },
+        caption: post.caption,
+        imageUrl: post.imageUrl,
+        imageId: post.imageId,
+        location: post.location,
+        tags: post.tags || [],
+        likes: post.likes || [],
+        $createdAt: post.createdAt,
+        createdAt: post.createdAt,
+      })),
+    };
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// Search posts
+export const searchPosts = async (searchTerm: string) => {
+  try {
+    const response = await apiClient.get(`/posts/search`, {
+      params: { searchTerm },
+    });
+    const posts = response.data.documents || response.data || [];
+    return {
+      documents: posts.map((post: any) => ({
+        $id: post._id || post.id,
+        id: post._id || post.id,
+        creator: {
+          $id: post.creator?._id || post.creator?.id,
+          id: post.creator?._id || post.creator?.id,
+          name: post.creator?.name,
+          username: post.creator?.username,
+          imageUrl: post.creator?.imageUrl || "",
+        },
+        caption: post.caption,
+        imageUrl: post.imageUrl,
+        imageId: post.imageId,
+        location: post.location,
+        tags: post.tags || [],
+        likes: post.likes || [],
+        $createdAt: post.createdAt,
+        createdAt: post.createdAt,
+      })),
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
 // Get post by ID
@@ -274,6 +365,11 @@ export const getPostReviews = async (postId: string): Promise<IReview[]> => {
   return response.data;
 };
 
+// Get reviews by post (alias for compatibility)
+export const getReviewsByPost = async (postId: string) => {
+  return getPostReviews(postId);
+};
+
 // Get reviews for external content
 export const getExternalReviews = async (
   externalContentId: string
@@ -282,6 +378,13 @@ export const getExternalReviews = async (
     `/reviews/external/${externalContentId}`
   );
   return response.data;
+};
+
+// Get reviews by external content (alias for compatibility)
+export const getReviewsByExternalContent = async (
+  externalContentId: string
+) => {
+  return getExternalReviews(externalContentId);
 };
 
 // ============================================================
@@ -298,10 +401,10 @@ export const followUser = async (userId: string): Promise<IFollow> => {
 
 // Unfollow user
 export const unfollowUser = async (
-  followId: string
+  followingId: string
 ): Promise<{ deleted: boolean }> => {
   const response = await apiClient.delete<{ deleted: boolean }>(
-    `/follows/${followId}`
+    `/follows/${followingId}`
   );
   return response.data;
 };
@@ -352,4 +455,88 @@ export const markNotificationAsRead = async (
     `/notifications/${notificationId}/read`
   );
   return response.data;
+};
+
+// Mark all notifications as read
+export const markAllNotificationsAsRead = async (): Promise<void> => {
+  const response = await apiClient.put("/notifications/read-all");
+  return response.data;
+};
+
+// Delete notification
+export const deleteNotification = async (
+  notificationId: string
+): Promise<void> => {
+  const response = await apiClient.delete(`/notifications/${notificationId}`);
+  return response.data;
+};
+
+// ============================================================
+// EXTERNAL API
+// ============================================================
+
+// Search external content (Unsplash, etc.)
+export const searchExternal = async (query: string, page?: number) => {
+  try {
+    const response = await apiClient.get(`/external/search`, {
+      params: { q: query, page: page || 1 },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// Get external content details
+export const getExternalDetails = async (id: string) => {
+  try {
+    const response = await apiClient.get(`/external/details/${id}`);
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// ============================================================
+// ADMIN
+// ============================================================
+
+// Delete user account (for user's own account)
+export const deleteUserAccount = async (userId: string) => {
+  try {
+    const response = await apiClient.delete(`/users/${userId}`);
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// Get all users (admin)
+export const getAllUsersAdmin = async () => {
+  try {
+    const response = await apiClient.get(`/admin/users`);
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// Delete user (admin)
+export const deleteUserAdmin = async (userId: string) => {
+  try {
+    const response = await apiClient.delete(`/users/${userId}`);
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// Delete post (admin)
+export const deletePostAdmin = async (postId: string, imageId?: string) => {
+  try {
+    const response = await apiClient.delete(`/posts/${postId}`);
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
 };

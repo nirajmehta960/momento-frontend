@@ -13,15 +13,22 @@ export const QUERY_KEYS = {
   // POSTS
   GET_POSTS: ["getPosts"],
   GET_INFINITE_POSTS: ["getInfinitePosts"],
+  GET_RECENT_POSTS: ["getRecentPosts"],
   GET_POST_BY_ID: (postId: string) => ["getPostById", postId],
   GET_USER_POSTS: (userId: string) => ["getUserPosts", userId],
   GET_FILE_PREVIEW: (fileUrl: string) => ["getFilePreview", fileUrl],
+  SEARCH_POSTS: ["searchPosts"],
 
   // REVIEWS
   GET_REVIEWS: ["getReviews"],
   GET_POST_REVIEWS: (postId: string) => ["getPostReviews", postId],
+  GET_REVIEWS_BY_POST: (postId: string) => ["getReviewsByPost", postId],
   GET_EXTERNAL_REVIEWS: (externalContentId: string) => [
     "getExternalReviews",
+    externalContentId,
+  ],
+  GET_REVIEWS_BY_EXTERNAL: (externalContentId: string) => [
+    "getReviewsByExternal",
     externalContentId,
   ],
 
@@ -37,9 +44,9 @@ export const QUERY_KEYS = {
   GET_UNREAD_NOTIFICATION_COUNT: ["getUnreadNotificationCount"],
 
   // EXTERNAL
-  SEARCH_EXTERNAL_CONTENT: (query: string) => ["searchExternalContent", query],
-  GET_EXTERNAL_CONTENT_DETAILS: (contentId: string) => [
-    "getExternalContentDetails",
+  SEARCH_EXTERNAL: ["searchExternal"],
+  GET_EXTERNAL_DETAILS: (contentId: string) => [
+    "getExternalDetails",
     contentId,
   ],
 };
