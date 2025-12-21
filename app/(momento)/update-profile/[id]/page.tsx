@@ -49,19 +49,33 @@ const UpdateProfile = () => {
     resolver: zodResolver(ProfileValidation),
     defaultValues: {
       file: [],
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      bio: user.bio || "",
+      name: user?.name || "",
+      username: user?.username || "",
+      email: user?.email || "",
+      bio: user?.bio || "",
       password: "",
     },
   });
 
-  const { data: currentUser } = useGetUserById(userId);
+  const { data: currentUser, isLoading: isLoadingUser } = useGetUserById(userId);
   const { mutateAsync: updateUser, isPending: isLoadingUpdate } =
     useUpdateUser();
 
-  if (!currentUser)
+  // Update form when currentUser loads
+  useEffect(() => {
+    if (currentUser) {
+      form.reset({
+        file: [],
+        name: (currentUser as any).name || user?.name || "",
+        username: (currentUser as any).username || user?.username || "",
+        email: (currentUser as any).email || user?.email || "",
+        bio: (currentUser as any).bio || user?.bio || "",
+        password: "",
+      });
+    }
+  }, [currentUser, form, user]);
+
+  if (isLoadingUser || !currentUser)
     return (
       <div className="flex-center w-full h-full">
         <Loader />
@@ -93,8 +107,7 @@ const UpdateProfile = () => {
       const updatePayload: any = {
         userId: (currentUser as any).$id || (currentUser as any).id || userId,
         name: value.name,
-        bio: value.bio,
-        file: value.file,
+        bio: value.bio || "",
       };
 
       if (value.password && value.password.trim() !== "") {
