@@ -25,7 +25,7 @@ import {
   getUserPosts,
   getLikedPosts,
   savePost,
-  unsavePost,
+  deleteSavedPost,
   getSavedPosts,
   createReview,
   updateReview,
@@ -67,12 +67,14 @@ import { QUERY_KEYS } from "./queryKeys";
 // AUTHENTICATION MUTATIONS
 // ============================================================
 
+// useMutation - Create user account (signup)
 export const useCreateUserAccount = () => {
   return useMutation({
     mutationFn: (user: INewUser) => createUserAccount(user),
   });
 };
 
+// useMutation - Sign in user (invalidates GET_CURRENT_USER on success)
 export const useSignInAccount = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -85,6 +87,7 @@ export const useSignInAccount = () => {
   });
 };
 
+// useMutation - Sign out user (clears all cache on success)
 export const useSignOutAccount = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -99,6 +102,7 @@ export const useSignOutAccount = () => {
 // USER QUERIES
 // ============================================================
 
+// useQuery - Get current authenticated user from session
 export const useGetCurrentUser = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_CURRENT_USER],
@@ -106,6 +110,7 @@ export const useGetCurrentUser = () => {
   });
 };
 
+// useQuery - Get user by ID
 export const useGetUserById = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_USER_BY_ID(userId),
@@ -114,6 +119,7 @@ export const useGetUserById = (userId: string) => {
   });
 };
 
+// useQuery - Get all users (optional limit)
 export const useGetUsers = (limit?: number) => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_USERS],
@@ -125,22 +131,26 @@ export const useGetUsers = (limit?: number) => {
 // USER MUTATIONS
 // ============================================================
 
+// useMutation - Update user (invalidates current user and user by ID on success)
 export const useUpdateUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, user }: { userId: string; user: IUpdateUser }) =>
-      updateUser(userId, user),
+    mutationFn: (user: IUpdateUser) => updateUser(user),
     onSuccess: (data) => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_CURRENT_USER],
       });
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.GET_USER_BY_ID(data._id),
+        queryKey: [
+          QUERY_KEYS.GET_USER_BY_ID,
+          (data as any)?.$id || (data as any)?.id,
+        ],
       });
     },
   });
 };
 
+// useMutation - Delete user (clears all cache on success)
 export const useDeleteUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -151,6 +161,7 @@ export const useDeleteUser = () => {
   });
 };
 
+// useMutation - Upload profile image (invalidates current user on success)
 export const useUploadProfileImage = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -167,6 +178,7 @@ export const useUploadProfileImage = () => {
 // POST QUERIES
 // ============================================================
 
+// useQuery - Get recent posts (with optional limit, skip, sortBy params)
 export const useGetRecentPosts = (params?: {
   limit?: number;
   skip?: number;
@@ -178,6 +190,7 @@ export const useGetRecentPosts = (params?: {
   });
 };
 
+// useQuery - Get post by ID
 export const useGetPostById = (postId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_POST_BY_ID(postId),
@@ -186,6 +199,7 @@ export const useGetPostById = (postId: string) => {
   });
 };
 
+// useQuery - Get posts by user ID
 export const useGetUserPosts = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_USER_POSTS(userId),
@@ -194,6 +208,7 @@ export const useGetUserPosts = (userId: string) => {
   });
 };
 
+// useQuery - Get posts liked by user
 export const useGetLikedPosts = (userId: string) => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_POSTS, "liked", userId],
@@ -202,6 +217,7 @@ export const useGetLikedPosts = (userId: string) => {
   });
 };
 
+// useInfiniteQuery - Get posts with infinite scroll pagination
 export const useGetPosts = (sortBy: string = "latest") => {
   return useInfiniteQuery({
     queryKey: [QUERY_KEYS.GET_INFINITE_POSTS, sortBy],
@@ -219,6 +235,7 @@ export const useGetPosts = (sortBy: string = "latest") => {
   });
 };
 
+// useQuery - Search posts by search term
 export const useSearchPosts = (searchTerm: string) => {
   return useQuery({
     queryKey: [QUERY_KEYS.SEARCH_POSTS, searchTerm],
@@ -227,6 +244,7 @@ export const useSearchPosts = (searchTerm: string) => {
   });
 };
 
+// useQuery - Search external content (Unsplash, etc.)
 export const useSearchExternal = (query: string, page?: number) => {
   return useQuery({
     queryKey: [QUERY_KEYS.SEARCH_EXTERNAL, query, page],
@@ -235,6 +253,7 @@ export const useSearchExternal = (query: string, page?: number) => {
   });
 };
 
+// useQuery - Get external content details
 export const useGetExternalDetails = (id: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_EXTERNAL_DETAILS(id),
@@ -243,6 +262,7 @@ export const useGetExternalDetails = (id: string) => {
   });
 };
 
+// useMutation - Delete user account (clears all cache on success)
 export const useDeleteUserAccount = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -257,6 +277,7 @@ export const useDeleteUserAccount = () => {
 // POST MUTATIONS
 // ============================================================
 
+// useMutation - Create post (invalidates GET_POSTS on success)
 export const useCreatePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -269,6 +290,7 @@ export const useCreatePost = () => {
   });
 };
 
+// useMutation - Update post (invalidates GET_POSTS and post by ID on success)
 export const useUpdatePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -284,6 +306,7 @@ export const useUpdatePost = () => {
   });
 };
 
+// useMutation - Delete post (invalidates GET_POSTS on success)
 export const useDeletePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -297,16 +320,25 @@ export const useDeletePost = () => {
   });
 };
 
+// useMutation - Like/unlike post (invalidates GET_POSTS and post by ID on success)
 export const useLikePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: likePost,
+    mutationFn: ({
+      postId,
+      likesArray,
+    }: {
+      postId: string;
+      likesArray: string[];
+    }) => likePost(postId, likesArray),
     onSuccess: (data) => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
       });
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.GET_POST_BY_ID(data._id),
+        queryKey: QUERY_KEYS.GET_POST_BY_ID(
+          (data as any)?.$id || (data as any)?.id
+        ),
       });
     },
   });
@@ -316,30 +348,43 @@ export const useLikePost = () => {
 // SAVE MUTATIONS
 // ============================================================
 
+// useMutation - Save post (invalidates GET_POSTS and GET_CURRENT_USER on success)
 export const useSavePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: savePost,
+    mutationFn: ({ postId, userId }: { postId: string; userId: string }) =>
+      savePost(postId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_CURRENT_USER],
       });
     },
   });
 };
 
+// useMutation - Unsave post (invalidates GET_SAVED_POSTS, GET_POSTS, and GET_CURRENT_USER on success)
 export const useDeleteSavedPost = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: unsavePost,
+    mutationFn: (postId: string) => deleteSavedPost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_SAVED_POSTS],
+      });
+      queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_CURRENT_USER],
       });
     },
   });
 };
 
+// useQuery - Get saved posts for user
 export const useGetSavedPosts = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_SAVED_POSTS(userId),
@@ -352,6 +397,7 @@ export const useGetSavedPosts = (userId: string) => {
 // REVIEW QUERIES
 // ============================================================
 
+// useQuery - Get reviews for a post
 export const useGetPostReviews = (postId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_POST_REVIEWS(postId),
@@ -360,6 +406,7 @@ export const useGetPostReviews = (postId: string) => {
   });
 };
 
+// useQuery - Get reviews by post (alias, forces refetch)
 export const useGetReviewsByPost = (postId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_REVIEWS_BY_POST(postId),
@@ -370,6 +417,7 @@ export const useGetReviewsByPost = (postId: string) => {
   });
 };
 
+// useQuery - Get reviews for external content
 export const useGetExternalReviews = (externalContentId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_EXTERNAL_REVIEWS(externalContentId),
@@ -378,6 +426,7 @@ export const useGetExternalReviews = (externalContentId: string) => {
   });
 };
 
+// useQuery - Get reviews by external content (alias)
 export const useGetReviewsByExternalContent = (externalContentId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_REVIEWS_BY_EXTERNAL(externalContentId),
@@ -390,6 +439,7 @@ export const useGetReviewsByExternalContent = (externalContentId: string) => {
 // REVIEW MUTATIONS
 // ============================================================
 
+// useMutation - Create review (invalidates post/external reviews on success)
 export const useCreateReview = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -412,6 +462,7 @@ export const useCreateReview = () => {
   });
 };
 
+// useMutation - Update review (invalidates related reviews on success)
 export const useUpdateReview = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -431,6 +482,7 @@ export const useUpdateReview = () => {
   });
 };
 
+// useMutation - Delete review (invalidates GET_REVIEWS on success)
 export const useDeleteReview = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -447,6 +499,7 @@ export const useDeleteReview = () => {
 // FOLLOW QUERIES
 // ============================================================
 
+// useQuery - Get followers of a user
 export const useGetFollowers = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_FOLLOWERS(userId),
@@ -455,6 +508,7 @@ export const useGetFollowers = (userId: string) => {
   });
 };
 
+// useQuery - Get users that a user is following
 export const useGetFollowing = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_FOLLOWING(userId),
@@ -467,6 +521,7 @@ export const useGetFollowing = (userId: string) => {
 // FOLLOW MUTATIONS
 // ============================================================
 
+// useMutation - Follow user (invalidates followers, following, and user profile on success)
 export const useFollowUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -485,6 +540,7 @@ export const useFollowUser = () => {
   });
 };
 
+// useMutation - Unfollow user (invalidates followers and following on success)
 export const useUnfollowUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -504,6 +560,7 @@ export const useUnfollowUser = () => {
 // NOTIFICATION QUERIES
 // ============================================================
 
+// useQuery - Get user's notifications (polls every 5 seconds)
 export const useGetNotifications = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
@@ -514,6 +571,7 @@ export const useGetNotifications = () => {
   });
 };
 
+// useQuery - Get unread notification count (polls every 5 seconds)
 export const useGetUnreadNotificationCount = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
@@ -528,6 +586,7 @@ export const useGetUnreadNotificationCount = () => {
 // NOTIFICATION MUTATIONS
 // ============================================================
 
+// useMutation - Mark notification as read (invalidates notifications and count on success)
 export const useMarkNotificationAsRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -544,6 +603,7 @@ export const useMarkNotificationAsRead = () => {
   });
 };
 
+// useMutation - Mark all notifications as read (invalidates notifications and count on success)
 export const useMarkAllNotificationsAsRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -559,6 +619,7 @@ export const useMarkAllNotificationsAsRead = () => {
   });
 };
 
+// useMutation - Delete notification (invalidates notifications and count on success)
 export const useDeleteNotification = () => {
   const queryClient = useQueryClient();
   return useMutation({

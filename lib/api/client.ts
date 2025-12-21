@@ -17,7 +17,7 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
-// Create axios instance with default config
+// Axios client configured for Express-session (withCredentials sends session cookies)
 export const apiClient = axios.create({
   baseURL: API_URL,
   withCredentials: true, // Required for session cookies
@@ -30,40 +30,109 @@ export const apiClient = axios.create({
 // AUTHENTICATION
 // ============================================================
 
-// Create user account (sign up)
+// POST /api/users/signup - Create account and auto sign-in
 export const createUserAccount = async (user: INewUser): Promise<IUser> => {
   const response = await apiClient.post<IUser>("/users/signup", user);
   return response.data;
 };
 
-// Sign in user
+// POST /api/users/signin - Sign in (supports email or username)
 export const signInAccount = async (user: ISignIn): Promise<IUser> => {
   const response = await apiClient.post<IUser>("/users/signin", user);
   return response.data;
 };
 
-// Sign out user
+// POST /api/users/signout - Sign out and destroy session
 export const signOutAccount = async (): Promise<void> => {
   await apiClient.post("/users/signout");
 };
 
-// Get current authenticated user
+// POST /api/users/profile - Get current user from session (returns null if not logged in)
+// Also fetches saved posts and includes them in the user object
 export const getCurrentUser = async (): Promise<IUser | null> => {
-  const response = await apiClient.post<IUser | null>("/users/profile");
-  return response.data;
+  try {
+    const response = await apiClient.post<IUser | null>("/users/profile");
+    if (!response.data) {
+      return null;
+    }
+    const user = response.data;
+
+    // Fetch saved posts for the user
+    try {
+      const savesResponse = await apiClient.get(
+        `/saves/user/${(user as any)._id || (user as any).id}`
+      );
+      const saves = savesResponse.data.save || savesResponse.data || [];
+
+      return {
+        ...user,
+        id: (user as any)._id || (user as any).id,
+        $id: (user as any)._id || (user as any).id,
+        save: saves.map((save: any) => ({
+          _id: save._id || save.$id || save.id,
+          $id: save._id || save.$id || save.id,
+          id: save._id || save.$id || save.id,
+          post: save.post
+            ? {
+                _id: save.post._id || save.post.$id || save.post.id,
+                $id: save.post._id || save.post.$id || save.post.id,
+                id: save.post._id || save.post.$id || save.post.id,
+                creator: save.post.creator
+                  ? {
+                      _id:
+                        save.post.creator._id ||
+                        save.post.creator.$id ||
+                        save.post.creator.id,
+                      $id:
+                        save.post.creator._id ||
+                        save.post.creator.$id ||
+                        save.post.creator.id,
+                      id:
+                        save.post.creator._id ||
+                        save.post.creator.$id ||
+                        save.post.creator.id,
+                      name: save.post.creator.name,
+                      username: save.post.creator.username,
+                      imageUrl: save.post.creator.imageUrl || "",
+                    }
+                  : null,
+                caption: save.post.caption,
+                imageUrl: save.post.imageUrl,
+                imageId: save.post.imageId,
+                location: save.post.location,
+                tags: save.post.tags || [],
+                likes: save.post.likes || [],
+                $createdAt: save.post.createdAt || save.post.$createdAt,
+                createdAt: save.post.createdAt || save.post.$createdAt,
+              }
+            : null,
+        })),
+      };
+    } catch (savesError) {
+      // If saves fetch fails, return user without saves
+      return {
+        ...user,
+        id: (user as any)._id || (user as any).id,
+        $id: (user as any)._id || (user as any).id,
+        save: [],
+      };
+    }
+  } catch (error: any) {
+    throw error;
+  }
 };
 
 // ============================================================
 // USERS
 // ============================================================
 
-// Get user by ID
+// GET /api/users/:userId - Get user by ID
 export const getUserById = async (userId: string): Promise<IUser> => {
   const response = await apiClient.get<IUser>(`/users/${userId}`);
   return response.data;
 };
 
-// Get all users (with optional filters)
+// GET /api/users - Get all users (query params: ?role=ADMIN, ?name=searchTerm)
 export const getUsers = async (params?: {
   role?: string;
   name?: string;
@@ -89,16 +158,39 @@ export const getUsers = async (params?: {
   }
 };
 
-// Update user
-export const updateUser = async (
-  userId: string,
-  user: IUpdateUser
-): Promise<IUser> => {
-  const response = await apiClient.put<IUser>(`/users/${userId}`, user);
-  return response.data;
+// PUT /api/users/:userId - Update user profile
+export const updateUser = async (user: IUpdateUser) => {
+  try {
+    const payload: any = {
+      name: user.name,
+      bio: user.bio,
+      imageUrl: user.imageUrl,
+      imageId: user.imageId,
+      imageData: user.imageData,
+      imageMimeType: user.imageMimeType,
+    };
+
+    if (user.password && user.password.trim() !== "") {
+      payload.password = user.password;
+    }
+
+    const response = await apiClient.put(`/users/${user.userId}`, payload);
+    const updatedUser = response.data;
+    return {
+      id: updatedUser._id || updatedUser.id,
+      $id: updatedUser._id || updatedUser.id,
+      name: updatedUser.name,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      imageUrl: updatedUser.imageUrl || "",
+      bio: updatedUser.bio || "",
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
-// Delete user
+// DELETE /api/users/:userId - Delete user account
 export const deleteUser = async (
   userId: string
 ): Promise<{ deleted: boolean }> => {
@@ -108,7 +200,7 @@ export const deleteUser = async (
   return response.data;
 };
 
-// Upload profile image
+// POST /api/users/upload - Upload profile image (FormData)
 export interface IUploadImageResponse {
   imageUrl: string;
   imageId: string;
@@ -148,17 +240,42 @@ export interface IUploadImageResponse {
   imageMimeType: string;
 }
 
-// Get recent posts
+// GET /api/posts - Get recent posts (query params: ?limit=10&skip=0&sortBy=latest)
 export const getRecentPosts = async (params?: {
   limit?: number;
   skip?: number;
   sortBy?: string;
-}): Promise<IPostsResponse> => {
-  const response = await apiClient.get<IPostsResponse>("/posts", { params });
-  return response.data;
+}) => {
+  try {
+    const response = await apiClient.get("/posts", { params });
+    const posts = response.data.documents || response.data || [];
+    return {
+      documents: posts.map((post: any) => ({
+        $id: post._id || post.id,
+        id: post._id || post.id,
+        creator: {
+          $id: post.creator?._id || post.creator?.id,
+          id: post.creator?._id || post.creator?.id,
+          name: post.creator?.name,
+          username: post.creator?.username,
+          imageUrl: post.creator?.imageUrl || "",
+        },
+        caption: post.caption,
+        imageUrl: post.imageUrl,
+        imageId: post.imageId,
+        location: post.location,
+        tags: post.tags || [],
+        likes: post.likes || [],
+        $createdAt: post.createdAt,
+        createdAt: post.createdAt,
+      })),
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
-// Get infinite posts for pagination
+// GET /api/posts - Get posts for infinite scroll pagination
 export const getInfinitePosts = async ({
   pageParam = 0,
   sortBy = "latest",
@@ -199,7 +316,7 @@ export const getInfinitePosts = async ({
   }
 };
 
-// Search posts
+// GET /api/posts/search - Search posts by caption/tags (query param: ?searchTerm=...)
 export const searchPosts = async (searchTerm: string) => {
   try {
     const response = await apiClient.get(`/posts/search`, {
@@ -232,13 +349,13 @@ export const searchPosts = async (searchTerm: string) => {
   }
 };
 
-// Get post by ID
+// GET /api/posts/:postId - Get post by ID
 export const getPostById = async (postId: string): Promise<IPost> => {
   const response = await apiClient.get<IPost>(`/posts/${postId}`);
   return response.data;
 };
 
-// Create post
+// POST /api/posts - Create post (FormData: file, caption, location, tags)
 export const createPost = async (post: INewPost): Promise<IPost> => {
   const formData = new FormData();
   formData.append("file", post.file[0]);
@@ -254,7 +371,7 @@ export const createPost = async (post: INewPost): Promise<IPost> => {
   return response.data;
 };
 
-// Update post
+// PUT /api/posts/:postId - Update post (FormData: optional file, caption, location, tags)
 export const updatePost = async (post: IUpdatePost): Promise<IPost> => {
   const formData = new FormData();
   if (post.file && post.file[0]) {
@@ -276,7 +393,7 @@ export const updatePost = async (post: IUpdatePost): Promise<IPost> => {
   return response.data;
 };
 
-// Delete post
+// DELETE /api/posts/:postId - Delete post
 export const deletePost = async (
   postId: string
 ): Promise<{ deleted: boolean }> => {
@@ -286,45 +403,94 @@ export const deletePost = async (
   return response.data;
 };
 
-// Like/unlike post
-export const likePost = async (postId: string): Promise<IPost> => {
-  const response = await apiClient.put<IPost>(`/posts/${postId}/like`);
-  return response.data;
+// PUT /api/posts/:postId/like - Like/unlike post (body: { likesArray: string[] })
+export const likePost = async (postId: string, likesArray: string[]) => {
+  try {
+    const response = await apiClient.put(`/posts/${postId}/like`, {
+      likesArray,
+    });
+    const postData = response.data;
+    return {
+      $id: postData._id || postData.id,
+      id: postData._id || postData.id,
+      likes: postData.likes || [],
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
-// Get user posts
+// GET /api/posts/user/:userId - Get all posts by user
 export const getUserPosts = async (userId: string): Promise<IPost[]> => {
   const response = await apiClient.get<IPost[]>(`/posts/user/${userId}`);
   return response.data;
 };
 
-// Get liked posts
-export const getLikedPosts = async (userId: string): Promise<IPost[]> => {
-  const response = await apiClient.get<IPost[]>(`/posts/user/${userId}/liked`);
-  return response.data;
+// GET /api/posts/user/:userId/liked - Get posts liked by user
+export const getLikedPosts = async (userId: string) => {
+  try {
+    const response = await apiClient.get(`/posts/user/${userId}/liked`);
+    const posts = response.data.documents || response.data || [];
+    return {
+      documents: posts.map((post: any) => ({
+        $id: post._id || post.id,
+        id: post._id || post.id,
+        creator: {
+          $id: post.creator?._id || post.creator?.id,
+          id: post.creator?._id || post.creator?.id,
+          name: post.creator?.name,
+          username: post.creator?.username,
+          imageUrl: post.creator?.imageUrl || "",
+        },
+        caption: post.caption,
+        imageUrl: post.imageUrl,
+        imageId: post.imageId,
+        location: post.location,
+        tags: post.tags || [],
+        likes: post.likes || [],
+        $createdAt: post.createdAt,
+        createdAt: post.createdAt,
+      })),
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
 // ============================================================
 // SAVES
 // ============================================================
 
-// Save post
-export const savePost = async (postId: string): Promise<ISave> => {
-  const response = await apiClient.post<ISave>(`/saves`, { postId });
-  return response.data;
+// POST /api/saves - Save a post (body: { postId })
+export const savePost = async (postId: string, userId: string) => {
+  try {
+    const response = await apiClient.post(`/saves`, { postId });
+    return {
+      $id: response.data._id || response.data.id,
+      id: response.data._id || response.data.id,
+      post: {
+        $id: response.data.post || response.data.post?._id,
+        id: response.data.post || response.data.post?._id,
+      },
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
-// Unsave post
-export const unsavePost = async (
-  saveId: string
-): Promise<{ deleted: boolean }> => {
-  const response = await apiClient.delete<{ deleted: boolean }>(
-    `/saves/${saveId}`
-  );
-  return response.data;
+// DELETE /api/saves - Unsave a post (body: { postId })
+export const deleteSavedPost = async (postId: string) => {
+  try {
+    await apiClient.delete(`/saves`, {
+      data: { postId },
+    });
+    return { status: "ok" };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
-// Get saved posts for user
+// GET /api/saves/user/:userId - Get saved posts for user
 export const getSavedPosts = async (userId: string): Promise<ISave[]> => {
   const response = await apiClient.get<ISave[]>(`/saves/user/${userId}`);
   return response.data;
@@ -334,13 +500,13 @@ export const getSavedPosts = async (userId: string): Promise<ISave[]> => {
 // REVIEWS
 // ============================================================
 
-// Create review
+// POST /api/reviews - Create review
 export const createReview = async (review: INewReview): Promise<IReview> => {
   const response = await apiClient.post<IReview>("/reviews", review);
   return response.data;
 };
 
-// Update review
+// PUT /api/reviews/:reviewId - Update review
 export const updateReview = async (review: IUpdateReview): Promise<IReview> => {
   const response = await apiClient.put<IReview>(
     `/reviews/${review.reviewId}`,
@@ -349,7 +515,7 @@ export const updateReview = async (review: IUpdateReview): Promise<IReview> => {
   return response.data;
 };
 
-// Delete review
+// DELETE /api/reviews/:reviewId - Delete review
 export const deleteReview = async (
   reviewId: string
 ): Promise<{ deleted: boolean }> => {
@@ -359,18 +525,18 @@ export const deleteReview = async (
   return response.data;
 };
 
-// Get reviews for post
+// GET /api/reviews/post/:postId - Get reviews for a post
 export const getPostReviews = async (postId: string): Promise<IReview[]> => {
   const response = await apiClient.get<IReview[]>(`/reviews/post/${postId}`);
   return response.data;
 };
 
-// Get reviews by post (alias for compatibility)
+// Alias for getPostReviews (compatibility)
 export const getReviewsByPost = async (postId: string) => {
   return getPostReviews(postId);
 };
 
-// Get reviews for external content
+// GET /api/reviews/external/:externalContentId - Get reviews for external content
 export const getExternalReviews = async (
   externalContentId: string
 ): Promise<IReview[]> => {
@@ -380,7 +546,7 @@ export const getExternalReviews = async (
   return response.data;
 };
 
-// Get reviews by external content (alias for compatibility)
+// Alias for getExternalReviews (compatibility)
 export const getReviewsByExternalContent = async (
   externalContentId: string
 ) => {
@@ -391,15 +557,15 @@ export const getReviewsByExternalContent = async (
 // FOLLOWS
 // ============================================================
 
-// Follow user
+// POST /api/follows - Follow a user (body: { followingId })
 export const followUser = async (userId: string): Promise<IFollow> => {
   const response = await apiClient.post<IFollow>(`/follows`, {
-    following: userId,
+    followingId: userId,
   });
   return response.data;
 };
 
-// Unfollow user
+// DELETE /api/follows/:followingId - Unfollow a user
 export const unfollowUser = async (
   followingId: string
 ): Promise<{ deleted: boolean }> => {
@@ -409,7 +575,7 @@ export const unfollowUser = async (
   return response.data;
 };
 
-// Get followers
+// GET /api/follows/followers/:userId - Get followers of a user
 export const getFollowers = async (userId: string): Promise<IFollow[]> => {
   const response = await apiClient.get<IFollow[]>(
     `/follows/followers/${userId}`
@@ -417,7 +583,7 @@ export const getFollowers = async (userId: string): Promise<IFollow[]> => {
   return response.data;
 };
 
-// Get following
+// GET /api/follows/following/:userId - Get users that a user is following
 export const getFollowing = async (userId: string): Promise<IFollow[]> => {
   const response = await apiClient.get<IFollow[]>(
     `/follows/following/${userId}`
@@ -429,25 +595,24 @@ export const getFollowing = async (userId: string): Promise<IFollow[]> => {
 // NOTIFICATIONS
 // ============================================================
 
-// Get notifications
+// GET /api/notifications - Get user's notifications
 export const getNotifications = async (): Promise<INotification[]> => {
   const response = await apiClient.get<INotification[]>("/notifications");
   return response.data;
 };
 
-// Get unread notification count
+// GET /api/notifications/unread-count - Get unread notification count
 export const getUnreadNotificationCount = async (): Promise<number> => {
   const response = await apiClient.get<number | { count: number }>(
-    "/notifications/unread"
+    "/notifications/unread-count"
   );
-  // Handle both response formats
   if (typeof response.data === "number") {
     return response.data;
   }
   return response.data.count;
 };
 
-// Mark notification as read
+// PUT /api/notifications/:notificationId/read - Mark notification as read
 export const markNotificationAsRead = async (
   notificationId: string
 ): Promise<INotification> => {
@@ -457,13 +622,13 @@ export const markNotificationAsRead = async (
   return response.data;
 };
 
-// Mark all notifications as read
+// PUT /api/notifications/read-all - Mark all notifications as read
 export const markAllNotificationsAsRead = async (): Promise<void> => {
   const response = await apiClient.put("/notifications/read-all");
   return response.data;
 };
 
-// Delete notification
+// DELETE /api/notifications/:notificationId - Delete notification
 export const deleteNotification = async (
   notificationId: string
 ): Promise<void> => {
@@ -475,7 +640,7 @@ export const deleteNotification = async (
 // EXTERNAL API
 // ============================================================
 
-// Search external content (Unsplash, etc.)
+// GET /api/external/search - Search external content (query param: ?q=...&page=1)
 export const searchExternal = async (query: string, page?: number) => {
   try {
     const response = await apiClient.get(`/external/search`, {
@@ -487,7 +652,7 @@ export const searchExternal = async (query: string, page?: number) => {
   }
 };
 
-// Get external content details
+// GET /api/external/details/:id - Get external content details
 export const getExternalDetails = async (id: string) => {
   try {
     const response = await apiClient.get(`/external/details/${id}`);
@@ -501,7 +666,7 @@ export const getExternalDetails = async (id: string) => {
 // ADMIN
 // ============================================================
 
-// Delete user account (for user's own account)
+// DELETE /api/users/:userId - Delete user account (own account or admin)
 export const deleteUserAccount = async (userId: string) => {
   try {
     const response = await apiClient.delete(`/users/${userId}`);
@@ -511,7 +676,7 @@ export const deleteUserAccount = async (userId: string) => {
   }
 };
 
-// Get all users (admin)
+// GET /api/admin/users - Get all users (admin only)
 export const getAllUsersAdmin = async () => {
   try {
     const response = await apiClient.get(`/admin/users`);
@@ -521,7 +686,7 @@ export const getAllUsersAdmin = async () => {
   }
 };
 
-// Delete user (admin)
+// DELETE /api/users/:userId - Delete user (admin only)
 export const deleteUserAdmin = async (userId: string) => {
   try {
     const response = await apiClient.delete(`/users/${userId}`);
@@ -531,7 +696,7 @@ export const deleteUserAdmin = async (userId: string) => {
   }
 };
 
-// Delete post (admin)
+// DELETE /api/posts/:postId - Delete post (admin only)
 export const deletePostAdmin = async (postId: string, imageId?: string) => {
   try {
     const response = await apiClient.delete(`/posts/${postId}`);
