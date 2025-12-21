@@ -3,8 +3,9 @@
 // ============================================================
 
 export interface IUser {
-  _id: string;
+  _id?: string;
   id?: string;
+  $id?: string;
   name: string;
   username: string;
   email?: string;
@@ -15,6 +16,12 @@ export interface IUser {
   createdAt?: string;
   updatedAt?: string;
   lastLogin?: string;
+  save?: Array<{
+    _id?: string;
+    $id?: string;
+    id?: string;
+    post?: IPost;
+  }>;
 }
 
 export interface INewUser {
@@ -31,6 +38,7 @@ export interface ISignIn {
 }
 
 export interface IUpdateUser {
+  userId: string;
   name?: string;
   username?: string;
   email?: string;
