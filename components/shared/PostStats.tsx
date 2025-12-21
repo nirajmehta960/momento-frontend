@@ -73,13 +73,16 @@ const PostStats = ({ post, userId }: PostStatsProps) => {
       setLikes(newLikes);
       const postId = post?.$id || post?.id || "";
       if (postId) {
-        likePost(postId, {
-          onSuccess: (data) => {
-            if (data?.likes) {
-              setLikes(data.likes);
-            }
-          },
-        });
+        likePost(
+          { postId, likesArray: newLikes },
+          {
+            onSuccess: (data) => {
+              if (data?.likes) {
+                setLikes(data.likes);
+              }
+            },
+          }
+        );
       }
     } else {
       window.location.href = "/sign-in";
@@ -93,20 +96,20 @@ const PostStats = ({ post, userId }: PostStatsProps) => {
       if (!postId) return;
 
       if (savedPostRecord) {
-        const saveId = savedPostRecord._id || savedPostRecord.$id;
-        if (saveId) {
-          deleteSavedPost(saveId, {
-            onSuccess: () => {
-              setIsSaved(false);
-            },
-          });
-        }
-      } else {
-        savePost(postId, {
+        deleteSavedPost(postId, {
           onSuccess: () => {
-            setIsSaved(true);
+            setIsSaved(false);
           },
         });
+      } else {
+        savePost(
+          { postId, userId },
+          {
+            onSuccess: () => {
+              setIsSaved(true);
+            },
+          }
+        );
       }
     } else {
       window.location.href = "/sign-in";

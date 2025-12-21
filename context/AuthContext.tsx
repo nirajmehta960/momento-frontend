@@ -40,7 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentAccount) {
         setUser({
           ...currentAccount,
-          id: currentAccount._id,
+          id: (currentAccount as any)._id || (currentAccount as any).$id || (currentAccount as any).id,
+          _id: (currentAccount as any)._id || (currentAccount as any).$id || (currentAccount as any).id,
+          $id: (currentAccount as any)._id || (currentAccount as any).$id || (currentAccount as any).id,
         });
         setIsAuthenticated(true);
         return true;

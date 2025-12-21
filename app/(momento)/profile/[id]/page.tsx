@@ -97,7 +97,10 @@ const Profile = () => {
   const isFollowingUser =
     isAuthenticated &&
     Array.isArray(followers) &&
-    followers.some((f: any) => (f._id || f.id) === user.id);
+    followers.some(
+      (f: any) =>
+        (f._id || f.$id || f.id) === (user.id || user._id || user.$id)
+    );
 
   const handleDeleteAccount = async () => {
     try {
@@ -173,9 +176,17 @@ const Profile = () => {
   const posts =
     (userPosts as any)?.documents ||
     (Array.isArray(userPosts) ? userPosts : []);
+  
+  // Normalize IDs for comparison
+  const currentUserId = (currentUser as any)?._id || (currentUser as any)?.$id || (currentUser as any)?.id;
+  const loggedInUserId = user?.id || user?._id || user?.$id;
+  
   const isOwnProfile =
     isAuthenticated &&
-    user.id === ((currentUser as any).$id || (currentUser as any).id);
+    currentUserId &&
+    loggedInUserId &&
+    currentUserId === loggedInUserId;
+  
   const limitedPosts = isAuthenticated ? posts : posts.slice(0, 2);
 
   const handleFollowersClick = () => {
