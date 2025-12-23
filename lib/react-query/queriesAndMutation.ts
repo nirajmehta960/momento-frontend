@@ -107,6 +107,9 @@ export const useGetCurrentUser = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_CURRENT_USER],
     queryFn: getCurrentUser,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 };
 
@@ -196,6 +199,8 @@ export const useGetPostById = (postId: string) => {
     queryKey: QUERY_KEYS.GET_POST_BY_ID(postId),
     queryFn: () => getPostById(postId),
     enabled: !!postId,
+    retry: 1,
+    retryOnMount: false,
   });
 };
 
@@ -277,36 +282,61 @@ export const useDeleteUserAccount = () => {
 // POST MUTATIONS
 // ============================================================
 
-// useMutation - Create post (invalidates GET_POSTS on success)
+// useMutation - Create post (invalidates GET_RECENT_POSTS on success)
 export const useCreatePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createPost,
     onSuccess: () => {
       queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
+      });
+      queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_INFINITE_POSTS],
       });
     },
   });
 };
 
-// useMutation - Update post (invalidates GET_POSTS and post by ID on success)
+// useMutation - Update post (invalidates all post-related queries on success)
 export const useUpdatePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updatePost,
     onSuccess: (data) => {
+      const postId = (data as any)?._id || (data as any)?.$id;
+      // Invalidate all post queries
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
       });
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.GET_POST_BY_ID(data._id),
+        queryKey: [QUERY_KEYS.GET_INFINITE_POSTS],
       });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
+      });
+      // Invalidate specific post
+      if (postId) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_POST_BY_ID(postId),
+        });
+      }
+      // Invalidate user posts if creator ID is available
+      const creator = (data as any)?.creator;
+      if (creator?._id || creator?.id) {
+        const creatorId = creator._id || creator.id;
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_USER_POSTS(creatorId),
+        });
+      }
     },
   });
 };
 
-// useMutation - Delete post (invalidates GET_POSTS on success)
+// useMutation - Delete post (invalidates GET_RECENT_POSTS on success)
 export const useDeletePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -314,13 +344,19 @@ export const useDeletePost = () => {
       deletePost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
+      });
+      queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_INFINITE_POSTS],
       });
     },
   });
 };
 
-// useMutation - Like/unlike post (invalidates GET_POSTS and post by ID on success)
+// useMutation - Like/unlike post (invalidates post queries and current user on success)
 export const useLikePost = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -332,29 +368,14 @@ export const useLikePost = () => {
       likesArray: string[];
     }) => likePost(postId, likesArray),
     onSuccess: (data) => {
+      const postId =
+        (data as any)?.$id || (data as any)?.id || (data as any)?._id;
       queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.GET_POSTS],
+        queryKey: QUERY_KEYS.GET_POST_BY_ID(postId),
       });
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.GET_POST_BY_ID(
-          (data as any)?.$id || (data as any)?.id
-        ),
+        queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
       });
-    },
-  });
-};
-
-// ============================================================
-// SAVE MUTATIONS
-// ============================================================
-
-// useMutation - Save post (invalidates GET_POSTS and GET_CURRENT_USER on success)
-export const useSavePost = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ postId, userId }: { postId: string; userId: string }) =>
-      savePost(postId, userId),
-    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
       });
@@ -365,14 +386,38 @@ export const useSavePost = () => {
   });
 };
 
-// useMutation - Unsave post (invalidates GET_SAVED_POSTS, GET_POSTS, and GET_CURRENT_USER on success)
+// ============================================================
+// SAVE MUTATIONS
+// ============================================================
+
+// useMutation - Save post (invalidates GET_RECENT_POSTS, GET_POSTS, and GET_CURRENT_USER on success)
+export const useSavePost = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, userId }: { postId: string; userId: string }) =>
+      savePost(postId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_CURRENT_USER],
+      });
+    },
+  });
+};
+
+// useMutation - Unsave post (invalidates GET_RECENT_POSTS, GET_POSTS, and GET_CURRENT_USER on success)
 export const useDeleteSavedPost = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (postId: string) => deleteSavedPost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.GET_SAVED_POSTS],
+        queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
       });
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
@@ -439,57 +484,67 @@ export const useGetReviewsByExternalContent = (externalContentId: string) => {
 // REVIEW MUTATIONS
 // ============================================================
 
-// useMutation - Create review (invalidates post/external reviews on success)
+// useMutation - Create review (invalidates review queries on success)
 export const useCreateReview = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createReview,
     onSuccess: (data) => {
-      if (data.postId) {
+      // Check for post (can be object or ID)
+      const post = (data as any)?.post;
+      const postId = typeof post === "string" ? post : post?._id || post?.id;
+      const externalContentId = (data as any)?.externalContentId;
+
+      if (postId) {
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.GET_POST_REVIEWS(data.postId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.GET_POST_BY_ID(data.postId),
+          queryKey: QUERY_KEYS.GET_REVIEWS_BY_POST(postId),
         });
       }
-      if (data.externalContentId) {
+      if (externalContentId) {
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.GET_EXTERNAL_REVIEWS(data.externalContentId),
+          queryKey: QUERY_KEYS.GET_REVIEWS_BY_EXTERNAL(externalContentId),
         });
       }
     },
   });
 };
 
-// useMutation - Update review (invalidates related reviews on success)
+// useMutation - Update review (invalidates review queries on success)
 export const useUpdateReview = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateReview,
     onSuccess: (data) => {
-      if (data.postId) {
+      // Check for post (can be object or ID)
+      const post = (data as any)?.post;
+      const postId = typeof post === "string" ? post : post?._id || post?.id;
+      const externalContentId = (data as any)?.externalContentId;
+
+      if (postId) {
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.GET_POST_REVIEWS(data.postId),
+          queryKey: QUERY_KEYS.GET_REVIEWS_BY_POST(postId),
         });
       }
-      if (data.externalContentId) {
+      if (externalContentId) {
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.GET_EXTERNAL_REVIEWS(data.externalContentId),
+          queryKey: QUERY_KEYS.GET_REVIEWS_BY_EXTERNAL(externalContentId),
         });
       }
     },
   });
 };
 
-// useMutation - Delete review (invalidates GET_REVIEWS on success)
+// useMutation - Delete review (invalidates review queries on success)
 export const useDeleteReview = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteReview,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.GET_REVIEWS],
+        queryKey: [QUERY_KEYS.GET_REVIEWS_BY_POST],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_REVIEWS_BY_EXTERNAL],
       });
     },
   });
@@ -551,6 +606,9 @@ export const useUnfollowUser = () => {
       });
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_FOLLOWING],
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.GET_USER_BY_ID(followingId),
       });
     },
   });
@@ -666,12 +724,25 @@ export const useDeletePostAdmin = () => {
   return useMutation({
     mutationFn: ({ postId, imageId }: { postId: string; imageId?: string }) =>
       deletePostAdmin(postId, imageId),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
       });
       queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_INFINITE_POSTS],
+      });
+      queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
+      });
+      // Invalidate specific post
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.GET_POST_BY_ID(variables.postId),
+      });
+      // Invalidate all user posts queries
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          return query.queryKey[0] === QUERY_KEYS.GET_USER_POSTS("")[0];
+        },
       });
     },
   });
