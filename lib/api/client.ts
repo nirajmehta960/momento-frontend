@@ -503,7 +503,12 @@ export const getSavedPosts = async (userId: string): Promise<ISave[]> => {
 // POST /api/reviews - Create review
 export const createReview = async (review: INewReview): Promise<IReview> => {
   const response = await apiClient.post<IReview>("/reviews", review);
-  return response.data;
+  // Map backend 'review' field to frontend 'comment' field for type compatibility
+  return {
+    ...response.data,
+    comment: (response.data as any).review || response.data.comment,
+    creator: (response.data as any).user || response.data.creator,
+  };
 };
 
 // PUT /api/reviews/:reviewId - Update review
@@ -512,7 +517,12 @@ export const updateReview = async (review: IUpdateReview): Promise<IReview> => {
     `/reviews/${review.reviewId}`,
     review
   );
-  return response.data;
+  // Map backend 'review' field to frontend 'comment' field for type compatibility
+  return {
+    ...response.data,
+    comment: (response.data as any).review || response.data.comment,
+    creator: (response.data as any).user || response.data.creator,
+  };
 };
 
 // DELETE /api/reviews/:reviewId - Delete review
@@ -527,8 +537,16 @@ export const deleteReview = async (
 
 // GET /api/reviews/post/:postId - Get reviews for a post
 export const getPostReviews = async (postId: string): Promise<IReview[]> => {
-  const response = await apiClient.get<IReview[]>(`/reviews/post/${postId}`);
-  return response.data;
+  const response = await apiClient.get<{ documents: IReview[] }>(
+    `/reviews/post/${postId}`
+  );
+  const reviews = response.data.documents || response.data || [];
+  // Map backend 'review' field to frontend 'comment' field for type compatibility
+  return reviews.map((review: any) => ({
+    ...review,
+    comment: review.review || review.comment,
+    creator: review.user || review.creator,
+  }));
 };
 
 // Alias for getPostReviews (compatibility)
@@ -540,10 +558,16 @@ export const getReviewsByPost = async (postId: string) => {
 export const getExternalReviews = async (
   externalContentId: string
 ): Promise<IReview[]> => {
-  const response = await apiClient.get<IReview[]>(
+  const response = await apiClient.get<{ documents: IReview[] }>(
     `/reviews/external/${externalContentId}`
   );
-  return response.data;
+  const reviews = response.data.documents || response.data || [];
+  // Map backend 'review' field to frontend 'comment' field for type compatibility
+  return reviews.map((review: any) => ({
+    ...review,
+    comment: review.review || review.comment,
+    creator: review.user || review.creator,
+  }));
 };
 
 // Alias for getExternalReviews (compatibility)
