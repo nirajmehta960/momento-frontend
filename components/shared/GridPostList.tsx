@@ -46,8 +46,8 @@ const GridPostList = ({
                 </p>
               </div>
             )}
-            {showStats && (
-              <PostStats post={post} userId={user.id || user._id} />
+            {showStats && user && (
+              <PostStats post={post} userId={user.id || user._id || user.$id || ""} />
             )}
           </div>
         </li>

@@ -115,8 +115,9 @@ export interface IReview {
 export interface INewReview {
   postId?: string;
   externalContentId?: string;
-  rating: number;
-  comment: string;
+  rating?: number;
+  review: string;
+  comment?: string;
 }
 
 export interface IUpdateReview {

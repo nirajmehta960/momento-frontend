@@ -73,7 +73,7 @@ const ReviewForm = ({
       updateReview(
         {
           reviewId: editingReview._id || editingReview.id || "",
-          review: review.trim(),
+          comment: review.trim(),
           rating: rating || undefined,
         },
         {

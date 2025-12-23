@@ -65,9 +65,18 @@ const PostForm = ({ post, action }: PostFormProps) => {
       return router.push(`/posts/${post.$id}`);
     }
 
+    const userId = user?.id || user?._id || user?.$id;
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "User not found. Please sign in again.",
+      });
+      return;
+    }
+
     const newPost = await createPost({
       ...values,
-      userId: user.id || user._id,
+      userId: userId,
     });
 
     if (!newPost) {
