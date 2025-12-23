@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Momento Frontend
+
+Frontend for the Momento Social Network, built with Next.js, React, TypeScript, and Tailwind CSS.
+
+## Overview
+
+Momento is a responsive social network that supports anonymous browsing, role-based access (USER, ADMIN), rich posting, and reviews.  
+This repository contains the client-side application powered by the Next.js App Router and React Query.
+
+## Tech Stack
+
+- Next.js (App Router), React, TypeScript
+- Tailwind CSS for styling
+- React Query (TanStack Query) for server state
+- Axios for API calls
+- React Hook Form + Zod for forms and validation
+- Lucide React icons
+
+## Features
+
+### User and Access Model
+
+- Sign-up and sign-in with email and password
+- Role selection at registration (USER, ADMIN)
+- Session-based authentication with protected routes
+- Anonymous users can browse most public pages with limited content
+
+### Core Social Features
+
+- Home feed with dynamic posts and anonymous vs authenticated views
+- Create, edit, and delete posts with image upload and tags
+- Likes, saves, and post-level review system with star ratings
+- User profiles (own and others) with grouped sections for posts, followers, following, saved, and reviews
+- Explore page with filters (latest, oldest, most liked, most reviewed)
+- Search functionality for posts
+- Personalized feed showing posts from followed users
+- In-app notifications for likes, follows, and reviews with unread badge counts and mark-as-read
+
+### External Content Integration
+
+- Unsplash-powered search and details pages
+- Ability to review external photos and link those reviews back to user profiles and the details page
+
+### Admin Features
+
+- Admin dashboard route restricted to ADMIN role
+- View all users and delete user accounts (except own)
+- View all posts and delete any post
+
+### UI and Responsiveness
+
+- Fully responsive layout for mobile, tablet, and desktop
+- Icon-only sidebar on tablet, full sidebar on desktop, bottom navigation on mobile
+- Consistent dark theme and professional styling across authentication, home, profile, details, and admin pages
+
+## Project Structure (High Level)
+
+```
+app/
+  (auth)/          Authentication (sign-in, sign-up)
+  (momento)/       Main application (home, explore, posts, profile, admin, about, privacy)
+components/
+  shared/          Shared UI (cards, navigation, dialogs, etc.)
+  forms/           Post, profile, review, and auth forms
+lib/
+  api/             Axios API client
+  react-query/     Query and mutation hooks
+  utils.ts         Shared utilities
+context/
+  AuthContext.tsx  Authentication context
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18 or higher
+- Running backend API (see `momento-backend`)
+
+### Installation
+
+```bash
+git clone https://github.com/nirajmehta960/momento-frontend
+cd momento-frontend
+npm install
+```
+
+Create `.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app is available at `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Links
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Frontend repository: [`momento-frontend`](https://github.com/nirajmehta960/momento-frontend)
+- Backend repository: [`momento-backend`](https://github.com/nirajmehta960/momento-backend)
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+| Variable                       | Description                  |
+| ------------------------------ | ---------------------------- |
+| `NEXT_PUBLIC_API_URL`          | Backend API base URL         |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run dev` – start development server
+- `npm run build` – build for production
+- `npm start` – run production build
+- `npm run lint` – run lint checks
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+ISC
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+
+This repository is part of an academic project and is intended to be used together with the `momento-backend` API server.
