@@ -73,7 +73,7 @@ const ReviewForm = ({
       updateReview(
         {
           reviewId: editingReview._id || editingReview.id || "",
-          comment: review.trim(),
+          review: review.trim(),
           rating: rating || undefined,
         },
         {
@@ -99,7 +99,7 @@ const ReviewForm = ({
         {
           postId,
           externalContentId,
-          comment: review.trim(),
+          review: review.trim(),
           rating: rating || undefined,
         },
         {
