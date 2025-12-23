@@ -15,7 +15,10 @@ import type {
   INotification,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+// API base URL from environment variable
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+// Ensure the URL ends with /api
+const API_URL = apiBaseUrl.endsWith("/api") ? apiBaseUrl : `${apiBaseUrl}/api`;
 
 // Axios client configured for Express-session (withCredentials sends session cookies)
 export const apiClient = axios.create({
