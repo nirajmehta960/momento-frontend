@@ -117,8 +117,13 @@ export const useGetCurrentUser = () => {
 export const useGetUserById = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_USER_BY_ID(userId),
-    queryFn: () => getUserById(userId),
-    enabled: !!userId,
+    queryFn: () => {
+      if (!userId || userId === "undefined" || userId.trim() === "") {
+        throw new Error("User ID is required");
+      }
+      return getUserById(userId);
+    },
+    enabled: !!userId && userId !== "undefined" && userId.trim() !== "",
   });
 };
 
@@ -208,8 +213,13 @@ export const useGetPostById = (postId: string) => {
 export const useGetUserPosts = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_USER_POSTS(userId),
-    queryFn: () => getUserPosts(userId),
-    enabled: !!userId,
+    queryFn: () => {
+      if (!userId || userId === "undefined" || userId.trim() === "") {
+        throw new Error("User ID is required");
+      }
+      return getUserPosts(userId);
+    },
+    enabled: !!userId && userId !== "undefined" && userId.trim() !== "",
   });
 };
 
@@ -558,8 +568,13 @@ export const useDeleteReview = () => {
 export const useGetFollowers = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_FOLLOWERS(userId),
-    queryFn: () => getFollowers(userId),
-    enabled: !!userId,
+    queryFn: () => {
+      if (!userId || userId === "undefined" || userId.trim() === "") {
+        throw new Error("User ID is required");
+      }
+      return getFollowers(userId);
+    },
+    enabled: !!userId && userId !== "undefined" && userId.trim() !== "",
   });
 };
 
@@ -567,8 +582,13 @@ export const useGetFollowers = (userId: string) => {
 export const useGetFollowing = (userId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.GET_FOLLOWING(userId),
-    queryFn: () => getFollowing(userId),
-    enabled: !!userId,
+    queryFn: () => {
+      if (!userId || userId === "undefined" || userId.trim() === "") {
+        throw new Error("User ID is required");
+      }
+      return getFollowing(userId);
+    },
+    enabled: !!userId && userId !== "undefined" && userId.trim() !== "",
   });
 };
 
