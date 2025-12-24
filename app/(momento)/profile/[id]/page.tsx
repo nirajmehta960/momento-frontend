@@ -85,12 +85,14 @@ const Profile = () => {
   }, [isSuccess, router, signOut]);
 
   const userId = Array.isArray(id) ? id[0] : id || "";
-  const { data: currentUser } = useGetUserById(userId);
-  const { data: userPosts } = useGetUserPosts(userId);
+  // Ensure userId is valid before making API calls
+  const validUserId = userId && userId !== "undefined" && userId.trim() !== "" ? userId : "";
+  const { data: currentUser } = useGetUserById(validUserId);
+  const { data: userPosts } = useGetUserPosts(validUserId);
   const { data: followers = [], isLoading: isLoadingFollowers } =
-    useGetFollowers(userId);
+    useGetFollowers(validUserId);
   const { data: following = [], isLoading: isLoadingFollowing } =
-    useGetFollowing(userId);
+    useGetFollowing(validUserId);
   const { mutate: followUser, isPending: isFollowing } = useFollowUser();
   const { mutate: unfollowUser, isPending: isUnfollowing } = useUnfollowUser();
 
@@ -104,7 +106,14 @@ const Profile = () => {
 
   const handleDeleteAccount = async () => {
     try {
-      await deleteAccount(userId);
+      if (!validUserId) {
+        toast({
+          title: "Error",
+          description: "Invalid user ID",
+        });
+        return;
+      }
+      await deleteAccount(validUserId);
       toast({
         title: "Account deleted successfully",
         description: "Your account has been permanently deleted.",
@@ -127,7 +136,14 @@ const Profile = () => {
       router.push("/sign-in");
       return;
     }
-    followUser(userId, {
+    if (!validUserId) {
+      toast({
+        title: "Error",
+        description: "Invalid user ID",
+      });
+      return;
+    }
+    followUser(validUserId, {
       onSuccess: () => {
         toast({
           title: "Success",
@@ -150,7 +166,14 @@ const Profile = () => {
       router.push("/sign-in");
       return;
     }
-    unfollowUser(userId, {
+    if (!validUserId) {
+      toast({
+        title: "Error",
+        description: "Invalid user ID",
+      });
+      return;
+    }
+    unfollowUser(validUserId, {
       onSuccess: () => {
         toast({
           title: "Success",
@@ -285,7 +308,7 @@ const Profile = () => {
                         href={`/update-profile/${
                           (currentUser as any).$id ||
                           (currentUser as any).id ||
-                          userId
+                          validUserId
                         }`}
                       >
                         <Button
@@ -334,13 +357,13 @@ const Profile = () => {
           </div>
 
           {/* Tabs */}
-          {isOwnProfile && (
+          {isOwnProfile && validUserId && (
             <div className="w-full border-t border-dark-4">
               <div className="flex justify-center">
                 <Link
-                  href={`/profile/${userId}`}
+                  href={`/profile/${validUserId}`}
                   className={`flex items-center gap-2 px-6 py-3 border-t-2 transition-colors ${
-                    pathname === `/profile/${userId}`
+                    pathname === `/profile/${validUserId}`
                       ? "border-white text-white"
                       : "border-transparent text-slate-400 hover:text-white"
                   }`}
@@ -349,9 +372,9 @@ const Profile = () => {
                   Posts
                 </Link>
                 <Link
-                  href={`/profile/${userId}/liked-posts`}
+                  href={`/profile/${validUserId}/liked-posts`}
                   className={`flex items-center gap-2 px-6 py-3 border-t-2 transition-colors ${
-                    pathname === `/profile/${userId}/liked-posts`
+                    pathname === `/profile/${validUserId}/liked-posts`
                       ? "border-white text-white"
                       : "border-transparent text-slate-400 hover:text-white"
                   }`}
@@ -365,7 +388,7 @@ const Profile = () => {
 
           {/* Posts Grid */}
           <div className="mt-6">
-            {pathname === `/profile/${userId}/liked-posts` ? (
+            {pathname === `/profile/${validUserId}/liked-posts` ? (
               isOwnProfile ? (
                 <LikedPosts />
               ) : null
