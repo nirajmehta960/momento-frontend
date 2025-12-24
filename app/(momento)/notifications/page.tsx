@@ -23,15 +23,10 @@ const Notifications = () => {
   const { mutate: markAllAsRead } = useMarkAllNotificationsAsRead();
   const { mutate: deleteNotif } = useDeleteNotification();
   const [deletingIds, setDeletingIds] = React.useState<Set<string>>(new Set());
-  const notificationsRef = React.useRef<any[]>([]);
 
   const notifications =
     (notificationsData as any)?.documents ||
     (Array.isArray(notificationsData) ? notificationsData : []);
-
-  React.useEffect(() => {
-    notificationsRef.current = notifications;
-  }, [notifications]);
 
   useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
@@ -39,16 +34,7 @@ const Notifications = () => {
     }
   }, [isAuthenticated, isAuthLoading, router]);
 
-  useEffect(() => {
-    return () => {
-      if (isAuthenticated && notificationsRef.current.length > 0) {
-        const hasUnread = notificationsRef.current.some((n: any) => !n.read);
-        if (hasUnread) {
-          markAllAsRead();
-        }
-      }
-    };
-  }, [isAuthenticated, markAllAsRead]);
+  // Removed auto mark-all-as-read on unmount to prevent marking all as read when clicking a single notification
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -187,7 +173,7 @@ const Notifications = () => {
                     ? "opacity-50 bg-dark-1 scale-95"
                     : isUnread
                     ? "bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30"
-                    : "bg-dark-2 hover:bg-dark-1 border border-dark-4"
+                    : "bg-dark-4 hover:bg-dark-3 border border-dark-3"
                 } rounded-lg`}
               >
                 <Link
@@ -220,13 +206,7 @@ const Notifications = () => {
                           {getNotificationIcon(notification.type)}
                         </div>
                       )}
-                      <p
-                        className={`text-sm ${
-                          isUnread
-                            ? "text-light-1 font-semibold"
-                            : "text-light-3 font-normal"
-                        }`}
-                      >
+                      <p className="text-sm text-light-3 font-normal">
                         {getNotificationMessage(notification)}
                       </p>
                     </div>

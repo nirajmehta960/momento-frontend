@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 
 const SigninForm = () => {
   const { toast } = useToast();
-  const { checkAuthUser } = useUserContext();
+  const { checkAuthUser, setUser } = useUserContext();
   const router = useRouter();
 
   const { mutateAsync: signInAccount, isPending: isSigningIn } =
@@ -46,31 +46,47 @@ const SigninForm = () => {
       });
 
       if (!session) {
-        return toast({
+        toast({
           title: "Sign-In failed",
           description:
             "Invalid credentials. Please check your email/username and password.",
           variant: "destructive",
         });
+        return;
       }
 
-      const isLoggedIn = await checkAuthUser();
-
-      if (isLoggedIn) {
-        form.reset();
-        router.push("/");
-      } else {
-        toast({
-          title: "Sign-In failed",
-          description: "Unable to verify your session. Please try again.",
-          variant: "destructive",
-        });
-      }
+      // Use returned user data directly to update context immediately
+      const userData = {
+        ...session,
+        id: (session as any)._id || (session as any).$id || (session as any).id,
+        _id: (session as any)._id || (session as any).$id || (session as any).id,
+        $id: (session as any)._id || (session as any).$id || (session as any).id,
+      };
+      setUser(userData);
+      form.reset();
+      // Navigate immediately without waiting for checkAuthUser
+      router.push("/");
+      // Verify in background without blocking navigation
+      checkAuthUser().catch(() => {
+        // Silent fail - user already navigated
+      });
     } catch (error: any) {
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Invalid email/username or password. Please try again.";
+      console.error("Sign-in error:", error);
+      
+      // Handle axios error response
+      let errorMessage = "Invalid email/username or password. Please try again.";
+      
+      if (error?.response) {
+        // Server responded with error status
+        errorMessage =
+          error.response.data?.message ||
+          error.response.data?.error ||
+          error.message ||
+          errorMessage;
+      } else if (error?.message) {
+        // Network error or other error
+        errorMessage = error.message;
+      }
 
       toast({
         title: "Sign-In failed",

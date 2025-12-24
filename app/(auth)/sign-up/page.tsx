@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 
 const SignupForm = () => {
   const { toast } = useToast();
-  const { checkAuthUser } = useUserContext();
+  const { checkAuthUser, setUser } = useUserContext();
   const router = useRouter();
 
   const { mutateAsync: createUserAccount, isPending: isCreatingAccount } =
@@ -71,11 +71,22 @@ const SignupForm = () => {
         });
       }
 
-      const isLoggedIn = await checkAuthUser();
-
-      if (isLoggedIn) {
+      // Use returned user data directly to update context immediately
+      if (session) {
+        const userData = {
+          ...session,
+          id: (session as any)._id || (session as any).$id || (session as any).id,
+          _id: (session as any)._id || (session as any).$id || (session as any).id,
+          $id: (session as any)._id || (session as any).$id || (session as any).id,
+        };
+        setUser(userData);
         form.reset();
+        // Navigate immediately without waiting for checkAuthUser
         router.push("/");
+        // Verify in background without blocking navigation
+        checkAuthUser().catch(() => {
+          // Silent fail - user already navigated
+        });
       } else {
         toast({
           title: "Sign-up failed",
@@ -86,6 +97,7 @@ const SignupForm = () => {
     } catch (error: any) {
       const errorMessage =
         error?.response?.data?.message ||
+        error?.response?.data?.error ||
         error?.message ||
         "Unable to create account. Please try again.";
 

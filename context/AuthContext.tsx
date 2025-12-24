@@ -72,6 +72,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuthUser();
   }, []);
 
+  // Automatically set isAuthenticated when user data is set
+  useEffect(() => {
+    if (user && user.id && user.id !== INITIAL_USER.id) {
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+    }
+  }, [user]);
+
   const value = {
     user,
     setUser,

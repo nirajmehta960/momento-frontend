@@ -6,6 +6,7 @@ import {
   useQueryClient,
   useInfiniteQuery,
 } from "@tanstack/react-query";
+import { useUserContext } from "@/context/AuthContext";
 import {
   createUserAccount,
   signInAccount,
@@ -74,12 +75,17 @@ export const useCreateUserAccount = () => {
   });
 };
 
-// useMutation - Sign in user (invalidates GET_CURRENT_USER on success)
+// useMutation - Sign in user (prefetches GET_CURRENT_USER with returned data)
 export const useSignInAccount = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (user: ISignIn) => signInAccount(user),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Prefetch current user query with returned data for instant access
+      if (data) {
+        queryClient.setQueryData([QUERY_KEYS.GET_CURRENT_USER], data);
+      }
+      // Also invalidate to ensure fresh data
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_CURRENT_USER],
       });
@@ -596,12 +602,88 @@ export const useGetFollowing = (userId: string) => {
 // FOLLOW MUTATIONS
 // ============================================================
 
-// useMutation - Follow user (invalidates followers, following, and user profile on success)
+// useMutation - Follow user (optimistically updates cache)
 export const useFollowUser = () => {
   const queryClient = useQueryClient();
+  const { user } = useUserContext();
   return useMutation({
     mutationFn: (followingId: string) => followUser(followingId),
+    onMutate: async (followingId: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
+      });
+      await queryClient.cancelQueries({
+        queryKey: [QUERY_KEYS.GET_FOLLOWING],
+      });
+
+      // Snapshot previous values
+      const previousFollowers = queryClient.getQueryData(
+        QUERY_KEYS.GET_FOLLOWERS(followingId)
+      );
+      const previousFollowing = queryClient.getQueryData([
+        QUERY_KEYS.GET_FOLLOWING,
+      ]);
+
+      // Optimistically update followers list
+      queryClient.setQueryData(
+        QUERY_KEYS.GET_FOLLOWERS(followingId),
+        (old: any) => {
+          if (!old) return old;
+          const currentUserId = user?.id || user?._id || user?.$id;
+          if (!currentUserId) return old;
+
+          // Handle both array and object with documents property
+          if (Array.isArray(old)) {
+            const alreadyFollowing = old.some(
+              (f: any) =>
+                (f._id || f.$id || f.id) === currentUserId
+            );
+            if (!alreadyFollowing) {
+              return [
+                ...old,
+                { _id: currentUserId, id: currentUserId, $id: currentUserId },
+              ];
+            }
+          } else {
+            const followers = old.documents || [];
+            const alreadyFollowing = followers.some(
+              (f: any) =>
+                (f._id || f.$id || f.id) === currentUserId
+            );
+            if (!alreadyFollowing) {
+              return {
+                ...old,
+                documents: [
+                  ...followers,
+                  { _id: currentUserId, id: currentUserId, $id: currentUserId },
+                ],
+              };
+            }
+          }
+          return old;
+        }
+      );
+
+      return { previousFollowers, previousFollowing };
+    },
+    onError: (err, followingId, context) => {
+      // Rollback on error
+      if (context?.previousFollowers) {
+        queryClient.setQueryData(
+          QUERY_KEYS.GET_FOLLOWERS(followingId),
+          context.previousFollowers
+        );
+      }
+      if (context?.previousFollowing) {
+        queryClient.setQueryData(
+          [QUERY_KEYS.GET_FOLLOWING],
+          context.previousFollowing
+        );
+      }
+    },
     onSuccess: (data, followingId) => {
+      // Invalidate to sync with server
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
@@ -615,12 +697,75 @@ export const useFollowUser = () => {
   });
 };
 
-// useMutation - Unfollow user (invalidates followers and following on success)
+// useMutation - Unfollow user (optimistically updates cache)
 export const useUnfollowUser = () => {
   const queryClient = useQueryClient();
+  const { user } = useUserContext();
   return useMutation({
     mutationFn: (followingId: string) => unfollowUser(followingId),
+    onMutate: async (followingId: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
+      });
+      await queryClient.cancelQueries({
+        queryKey: [QUERY_KEYS.GET_FOLLOWING],
+      });
+
+      // Snapshot previous values
+      const previousFollowers = queryClient.getQueryData(
+        QUERY_KEYS.GET_FOLLOWERS(followingId)
+      );
+      const previousFollowing = queryClient.getQueryData([
+        QUERY_KEYS.GET_FOLLOWING,
+      ]);
+
+      // Optimistically update followers list
+      queryClient.setQueryData(
+        QUERY_KEYS.GET_FOLLOWERS(followingId),
+        (old: any) => {
+          if (!old) return old;
+          const currentUserId = user?.id || user?._id || user?.$id;
+          if (!currentUserId) return old;
+
+          // Handle both array and object with documents property
+          if (Array.isArray(old)) {
+            return old.filter(
+              (f: any) =>
+                (f._id || f.$id || f.id) !== currentUserId
+            );
+          } else {
+            const followers = old.documents || [];
+            return {
+              ...old,
+              documents: followers.filter(
+                (f: any) =>
+                  (f._id || f.$id || f.id) !== currentUserId
+              ),
+            };
+          }
+        }
+      );
+
+      return { previousFollowers, previousFollowing };
+    },
+    onError: (err, followingId, context) => {
+      // Rollback on error
+      if (context?.previousFollowers) {
+        queryClient.setQueryData(
+          QUERY_KEYS.GET_FOLLOWERS(followingId),
+          context.previousFollowers
+        );
+      }
+      if (context?.previousFollowing) {
+        queryClient.setQueryData(
+          [QUERY_KEYS.GET_FOLLOWING],
+          context.previousFollowing
+        );
+      }
+    },
     onSuccess: (data, followingId) => {
+      // Invalidate to sync with server
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
@@ -638,25 +783,29 @@ export const useUnfollowUser = () => {
 // NOTIFICATION QUERIES
 // ============================================================
 
-// useQuery - Get user's notifications (polls every 5 seconds)
+// useQuery - Get user's notifications (polls every 5 seconds, shows cached data immediately)
 export const useGetNotifications = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
     queryFn: getNotifications,
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    refetchOnMount: false, // Don't refetch on mount if we have cached data
+    staleTime: 3000, // Consider data fresh for 3 seconds
+    placeholderData: (previousData) => previousData, // Show cached data while refetching
   });
 };
 
-// useQuery - Get unread notification count (polls every 5 seconds)
+// useQuery - Get unread notification count (polls every 5 seconds, shows cached data immediately)
 export const useGetUnreadNotificationCount = () => {
   return useQuery({
     queryKey: [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
     queryFn: getUnreadNotificationCount,
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    refetchOnMount: false, // Don't refetch on mount if we have cached data
+    staleTime: 3000, // Consider data fresh for 3 seconds
+    placeholderData: (previousData) => previousData, // Show cached data while refetching
   });
 };
 
@@ -664,13 +813,53 @@ export const useGetUnreadNotificationCount = () => {
 // NOTIFICATION MUTATIONS
 // ============================================================
 
-// useMutation - Mark notification as read (invalidates notifications and count on success)
+// useMutation - Mark notification as read (optimistically updates cache)
 export const useMarkNotificationAsRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (notificationId: string) =>
       markNotificationAsRead(notificationId),
+    onMutate: async (notificationId: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
+      });
+
+      // Snapshot the previous value
+      const previousNotifications = queryClient.getQueryData([
+        QUERY_KEYS.GET_NOTIFICATIONS,
+      ]);
+
+      // Optimistically update only the clicked notification
+      queryClient.setQueryData(
+        [QUERY_KEYS.GET_NOTIFICATIONS],
+        (old: any) => {
+          if (!old) return old;
+          const documents = old.documents || old || [];
+          return {
+            ...old,
+            documents: documents.map((notif: any) =>
+              (notif._id || notif.id) === notificationId
+                ? { ...notif, read: true }
+                : notif
+            ),
+          };
+        }
+      );
+
+      return { previousNotifications };
+    },
+    onError: (err, notificationId, context) => {
+      // Rollback on error
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(
+          [QUERY_KEYS.GET_NOTIFICATIONS],
+          context.previousNotifications
+        );
+      }
+    },
     onSuccess: () => {
+      // Invalidate to sync with server
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
       });

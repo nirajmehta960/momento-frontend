@@ -280,11 +280,7 @@ const Profile = () => {
                             size="sm"
                             className="gap-2 bg-transparent text-light-1 border border-light-1 hover:bg-primary-500 hover:border-primary-500 hover:text-white transition"
                           >
-                            {isFollowing || isUnfollowing
-                              ? "Loading..."
-                              : isFollowingUser
-                              ? "Unfollow"
-                              : "Follow"}
+                            {isFollowingUser ? "Unfollow" : "Follow"}
                           </Button>
                         </>
                       ) : (
