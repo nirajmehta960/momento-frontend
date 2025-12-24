@@ -425,8 +425,27 @@ export const likePost = async (postId: string, likesArray: string[]) => {
 
 // GET /api/posts/user/:userId - Get all posts by user
 export const getUserPosts = async (userId: string): Promise<IPost[]> => {
-  const response = await apiClient.get<IPost[]>(`/posts/user/${userId}`);
-  return response.data;
+  const response = await apiClient.get(`/posts/user/${userId}`);
+  const posts = response.data.documents || response.data || [];
+  return posts.map((post: any) => ({
+    $id: post._id || post.id,
+    id: post._id || post.id,
+    creator: {
+      $id: post.creator?._id || post.creator?.id,
+      id: post.creator?._id || post.creator?.id,
+      name: post.creator?.name,
+      username: post.creator?.username,
+      imageUrl: post.creator?.imageUrl || "",
+    },
+    caption: post.caption,
+    imageUrl: post.imageUrl,
+    imageId: post.imageId,
+    location: post.location,
+    tags: post.tags || [],
+    likes: post.likes || [],
+    $createdAt: post.createdAt,
+    createdAt: post.createdAt,
+  }));
 };
 
 // GET /api/posts/user/:userId/liked - Get posts liked by user
