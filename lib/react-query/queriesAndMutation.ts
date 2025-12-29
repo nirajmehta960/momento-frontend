@@ -52,6 +52,13 @@ import {
   deletePostAdmin,
   getReviewsByPost,
   getReviewsByExternalContent,
+  getChatHistory,
+  sendMessage,
+  getUserConversation,
+  sendUserMessage,
+  getConversationPartners,
+  getUnreadMessageCount,
+  markConversationAsRead,
 } from "@/lib/api/client";
 import type {
   INewUser,
@@ -952,6 +959,244 @@ export const useDeletePostAdmin = () => {
         predicate: (query) => {
           return query.queryKey[0] === QUERY_KEYS.GET_USER_POSTS("")[0];
         },
+      });
+    },
+  });
+};
+
+// ============================================================
+// MESSAGES / CONVERSATIONS
+// ============================================================
+
+// useQuery - Get AI chat history
+export const useGetChatHistory = () => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.GET_CHAT_HISTORY],
+    queryFn: getChatHistory,
+  });
+};
+
+// useMutation - Send message to AI
+export const useSendMessage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) => sendMessage(content),
+    onSuccess: (data) => {
+      // Update chat history with new messages
+      queryClient.setQueryData(
+        [QUERY_KEYS.GET_CHAT_HISTORY],
+        (old: any) => {
+          const messages = old?.messages || [];
+          return {
+            messages: [
+              ...messages,
+              data.userMessage,
+              data.assistantMessage,
+            ],
+          };
+        }
+      );
+    },
+  });
+};
+
+// useQuery - Get user-to-user conversation
+export const useGetUserConversation = (userId: string | null) => {
+  return useQuery({
+    queryKey: userId ? QUERY_KEYS.GET_USER_CONVERSATION(userId) : ["skip"],
+    queryFn: () => {
+      if (!userId) throw new Error("User ID is required");
+      return getUserConversation(userId);
+    },
+    enabled: !!userId,
+  });
+};
+
+// useMutation - Send user-to-user message
+export const useSendUserMessage = () => {
+  const queryClient = useQueryClient();
+  const { user } = useUserContext();
+  return useMutation({
+    mutationFn: async (data: { receiverId: string; content: string }) => {
+      // Always use REST API for persistence
+      return sendUserMessage(data);
+    },
+    onMutate: async (variables) => {
+      // Cancel outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({
+        queryKey: QUERY_KEYS.GET_USER_CONVERSATION(variables.receiverId),
+      });
+
+      // Snapshot previous value
+      const previousConversation = queryClient.getQueryData(
+        QUERY_KEYS.GET_USER_CONVERSATION(variables.receiverId)
+      );
+
+      // Optimistically add message immediately
+      const optimisticMessage = {
+        _id: `temp-${Date.now()}`,
+        senderId: user?.id,
+        receiverId: variables.receiverId,
+        content: variables.content,
+        createdAt: new Date().toISOString(),
+        read: false,
+      };
+
+      queryClient.setQueryData(
+        QUERY_KEYS.GET_USER_CONVERSATION(variables.receiverId),
+        (old: any) => {
+          const messages = old?.messages || [];
+          return {
+            ...old,
+            messages: [...messages, optimisticMessage],
+          };
+        }
+      );
+
+      // Update conversation partners list optimistically
+      queryClient.setQueryData(
+        [QUERY_KEYS.GET_CONVERSATION_PARTNERS],
+        (old: any) => {
+          if (!old || !old.partners) return old;
+          
+          const partners = [...old.partners];
+          const partnerIndex = partners.findIndex(
+            (p: any) => p.partnerId === variables.receiverId
+          );
+
+          const updatedPartner = {
+            partnerId: variables.receiverId,
+            lastMessageTime: optimisticMessage.createdAt,
+            lastMessageContent: optimisticMessage.content,
+            lastMessageSenderId: user?.id,
+            unreadCount: partners[partnerIndex]?.unreadCount || 0,
+          };
+
+          // Remove old partner if exists and add updated one at the top
+          const filteredPartners = partnerIndex >= 0 
+            ? partners.filter((p: any) => p.partnerId !== variables.receiverId)
+            : partners;
+          
+          return {
+            ...old,
+            partners: [updatedPartner, ...filteredPartners],
+          };
+        }
+      );
+
+      return { previousConversation };
+    },
+    onSuccess: (message, variables) => {
+      // Replace optimistic message with real one from server
+      queryClient.setQueryData(
+        QUERY_KEYS.GET_USER_CONVERSATION(variables.receiverId),
+        (old: any) => {
+          const messages = old?.messages || [];
+          const filteredMessages = messages.filter(
+            (m: any) => !m._id?.startsWith("temp-")
+          );
+          // Check if message already exists (avoid duplicates from WebSocket)
+          const exists = filteredMessages.some((m: any) => m._id === message._id);
+          if (exists) {
+            return { ...old, messages: filteredMessages };
+          }
+          return {
+            ...old,
+            messages: [...filteredMessages, message],
+          };
+        }
+      );
+      // WebSocket will handle conversation partners list update
+    },
+    onError: (err, variables, context) => {
+      // Rollback optimistic update on error
+      if (context?.previousConversation) {
+        queryClient.setQueryData(
+          QUERY_KEYS.GET_USER_CONVERSATION(variables.receiverId),
+          context.previousConversation
+        );
+      }
+    },
+  });
+};
+
+// useQuery - Get conversation partners
+export const useGetConversationPartners = () => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.GET_CONVERSATION_PARTNERS],
+    queryFn: getConversationPartners,
+    staleTime: 0, // Always consider data stale to allow optimistic updates to show immediately
+    refetchOnMount: false, // Don't refetch on mount if we have cached data
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+};
+
+// useQuery - Get unread message count
+export const useGetUnreadMessageCount = () => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.GET_UNREAD_MESSAGE_COUNT],
+    queryFn: getUnreadMessageCount,
+    staleTime: 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+};
+
+// useMutation - Mark conversation as read
+export const useMarkConversationAsRead = () => {
+  const queryClient = useQueryClient();
+  const { user } = useUserContext();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      // Emit via WebSocket for real-time notification (only on client)
+      if (typeof window !== "undefined") {
+        const { getSocket } = await import("@/lib/api/socket");
+        const socket = getSocket(user?.id);
+        
+        if (socket?.connected) {
+          socket.emit("mark-read", {
+            userId: user?.id,
+            partnerId: userId,
+          });
+        }
+      }
+      
+      // Still call REST API for persistence
+      return markConversationAsRead(userId);
+    },
+    onSuccess: (_, userId) => {
+      // Optimistically update conversation partners to set unread count to 0
+      queryClient.setQueryData(
+        [QUERY_KEYS.GET_CONVERSATION_PARTNERS],
+        (old: any) => {
+          if (!old || !old.partners) return old;
+          
+          const partners = old.partners.map((p: any) =>
+            p.partnerId === userId ? { ...p, unreadCount: 0 } : p
+          );
+
+          // Count number of conversations with unread messages (not total messages)
+          const conversationsWithUnread = partners.filter(
+            (p: any) => (p.unreadCount || 0) > 0
+          ).length;
+
+          // Optimistically update unread count immediately
+          queryClient.setQueryData(
+            [QUERY_KEYS.GET_UNREAD_MESSAGE_COUNT],
+            conversationsWithUnread
+          );
+
+          // Return new object with new array reference to ensure React Query detects the change
+          return {
+            ...old,
+            partners: [...partners], // Create new array reference
+          };
+        }
+      );
+
+      // Invalidate conversation to refresh read status
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.GET_USER_CONVERSATION(userId),
       });
     },
   });

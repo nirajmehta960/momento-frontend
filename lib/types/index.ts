@@ -193,3 +193,24 @@ export interface IExternalContent {
   created_at: string;
   likes: number;
 }
+
+// ============================================================
+// MESSAGE TYPES
+// ============================================================
+
+export interface IMessage {
+  _id: string;
+  userId?: string;
+  senderId?: string;
+  receiverId?: string;
+  role?: "user" | "assistant";
+  content: string;
+  imageUrl?: string | null;
+  feedback?: "up" | "down" | null;
+  read?: boolean;
+  createdAt: string;
+}
+
+export interface IUserConversation {
+  messages: IMessage[];
+}

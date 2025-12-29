@@ -6,6 +6,7 @@ import {
   PlusSquare,
   Bell,
   Camera,
+  MessageCircle,
 } from "lucide-react";
 
 export const sidebarLinks = [
@@ -28,6 +29,18 @@ export const sidebarLinks = [
     icon: Users,
   },
   {
+    imgURL: "/assets/icons/chat.svg",
+    route: "/messages",
+    label: "Messages",
+    icon: MessageCircle,
+  },
+  {
+    imgURL: "/assets/icons/bell.svg",
+    route: "/notifications",
+    label: "Notifications",
+    icon: Bell,
+  },
+  {
     imgURL: "/assets/icons/bookmark.svg",
     route: "/saved",
     label: "Saved",
@@ -38,12 +51,6 @@ export const sidebarLinks = [
     route: "/create-post",
     label: "Create Post",
     icon: PlusSquare,
-  },
-  {
-    imgURL: "/assets/icons/bell.svg",
-    route: "/notifications",
-    label: "Notifications",
-    icon: Bell,
   },
 ];
 
@@ -59,19 +66,19 @@ export const bottombarLinks = [
     label: "Explore",
   },
   {
-    imgURL: "/assets/icons/gallery-add.svg",
-    route: "/create-post",
-    label: "Create Post",
-  },
-  {
-    imgURL: "/assets/icons/bookmark.svg",
-    route: "/saved",
-    label: "Saved",
+    imgURL: "/assets/icons/chat.svg",
+    route: "/messages",
+    label: "Messages",
   },
   {
     imgURL: "/assets/icons/bell.svg",
     route: "/notifications",
     label: "Notifications",
+  },
+  {
+    imgURL: "/assets/icons/bookmark.svg",
+    route: "/saved",
+    label: "Saved",
   },
 ];
 
