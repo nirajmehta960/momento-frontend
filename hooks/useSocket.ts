@@ -168,6 +168,158 @@ export const useSocket = () => {
           queryKey: QUERY_KEYS.GET_USER_CONVERSATION(data.readBy),
         });
       });
+
+      // Listen for new notifications
+      socket.on("new-notification", (notification: any) => {
+        // Optimistically add notification to the list
+        queryClient.setQueryData(
+          [QUERY_KEYS.GET_NOTIFICATIONS],
+          (old: any) => {
+            if (!old || !old.documents) {
+              return { documents: [notification] };
+            }
+            // Check if notification already exists
+            const exists = old.documents.some(
+              (n: any) => n._id === notification._id
+            );
+            if (exists) {
+              return old;
+            }
+            // Add new notification at the beginning
+            return {
+              ...old,
+              documents: [notification, ...old.documents],
+            };
+          }
+        );
+      });
+
+      // Listen for notification count updates
+      socket.on("notification-count-updated", () => {
+        // Optimistically increment unread notification count
+        queryClient.setQueryData(
+          [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
+          (old: any) => {
+            const currentCount = typeof old === "number" ? old : old?.count || 0;
+            return currentCount + 1;
+          }
+        );
+        
+        // Also invalidate to sync with server
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
+        });
+      });
+
+      // Listen for post like updates
+      socket.on("post-liked", (data: { postId: string; likes: string[]; post: any }) => {
+        // Update post in cache with new likes
+        queryClient.setQueryData(
+          QUERY_KEYS.GET_POST_BY_ID(data.postId),
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              likes: data.likes,
+            };
+          }
+        );
+
+        // Invalidate post lists to refresh like counts
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.GET_POSTS],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.GET_INFINITE_POSTS],
+        });
+      });
+
+      // Listen for new reviews
+      socket.on("new-review", (data: { postId: string; review: any }) => {
+        // Optimistically add review to the list
+        queryClient.setQueryData(
+          QUERY_KEYS.GET_REVIEWS_BY_POST(data.postId),
+          (old: any) => {
+            if (!old || !old.documents) {
+              return { documents: [data.review] };
+            }
+            // Check if review already exists
+            const exists = old.documents.some(
+              (r: any) => r._id === data.review._id
+            );
+            if (exists) {
+              return old;
+            }
+            // Add new review at the beginning
+            return {
+              ...old,
+              documents: [data.review, ...old.documents],
+            };
+          }
+        );
+      });
+
+      // Listen for follow/unfollow updates
+      socket.on("follow-updated", (data: { userId: string; action: "follow" | "unfollow"; followerId?: string; followingId?: string }) => {
+        // Invalidate followers and following lists for real-time updates
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_FOLLOWERS(data.userId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_FOLLOWING(data.userId),
+        });
+        
+        // Also invalidate messagable users if it's the current user
+        if (data.userId === user.id) {
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.GET_MESSAGABLE_USERS(data.userId),
+          });
+        }
+        
+        // Invalidate user profile to update follower/following counts
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_USER_BY_ID(data.userId),
+        });
+      });
+
+      // Listen for new posts from users you follow
+      socket.on("new-post", (post: any) => {
+        // Optimistically add post to the beginning of post lists
+        queryClient.setQueryData(
+          [QUERY_KEYS.GET_RECENT_POSTS],
+          (old: any) => {
+            if (!old || !old.documents) {
+              return { documents: [post] };
+            }
+            // Check if post already exists
+            const exists = old.documents.some(
+              (p: any) => (p._id || p.id || p.$id) === (post._id || post.id || post.$id)
+            );
+            if (exists) {
+              return old;
+            }
+            // Add new post at the beginning
+            return {
+              ...old,
+              documents: [post, ...old.documents],
+            };
+          }
+        );
+        
+        // Also invalidate to ensure consistency
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.GET_RECENT_POSTS],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.GET_POSTS],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.GET_INFINITE_POSTS],
+        });
+      });
     };
 
     initializeSocket();
@@ -177,6 +329,12 @@ export const useSocket = () => {
       if (socketRef.current) {
         socketRef.current.off("new-message");
         socketRef.current.off("messages-read");
+        socketRef.current.off("new-notification");
+        socketRef.current.off("notification-count-updated");
+        socketRef.current.off("post-liked");
+        socketRef.current.off("new-review");
+        socketRef.current.off("follow-updated");
+        socketRef.current.off("new-post");
       }
     };
   }, [isAuthenticated, user?.id, queryClient]);
