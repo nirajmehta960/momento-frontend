@@ -354,8 +354,36 @@ export const searchPosts = async (searchTerm: string) => {
 
 // GET /api/posts/:postId - Get post by ID
 export const getPostById = async (postId: string): Promise<IPost> => {
-  const response = await apiClient.get<IPost>(`/posts/${postId}`);
-  return response.data;
+  try {
+    const response = await apiClient.get(`/posts/${postId}`);
+    const postData = response.data;
+
+    if (!postData) {
+      throw new Error("Post not found");
+    }
+
+    return {
+      $id: postData._id || postData.id || postData.$id,
+      id: postData._id || postData.id || postData.$id,
+      creator: {
+        $id: postData.creator?._id || postData.creator?.id || postData.creator?.$id,
+        id: postData.creator?._id || postData.creator?.id || postData.creator?.$id,
+        name: postData.creator?.name || "",
+        username: postData.creator?.username || "",
+        imageUrl: postData.creator?.imageUrl || "",
+      },
+      caption: postData.caption || "",
+      imageUrl: postData.imageUrl || "",
+      imageId: postData.imageId || "",
+      location: postData.location || "",
+      tags: postData.tags || [],
+      likes: postData.likes || [],
+      $createdAt: postData.createdAt,
+      createdAt: postData.createdAt,
+    };
+  } catch (error: any) {
+    throw error;
+  }
 };
 
 // POST /api/posts - Create post (FormData: file, caption, location, tags)

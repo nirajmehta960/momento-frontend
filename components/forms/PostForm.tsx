@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import FileUploader from "@/components/shared/FileUploader";
-import { PostValidation } from "@/lib/validation";
+import { PostValidation, UpdatePostValidation } from "@/lib/validation";
 import { useUserContext } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
@@ -40,8 +40,17 @@ const PostForm = ({ post, action }: PostFormProps) => {
   const { toast } = useToast();
   const router = useRouter();
 
-  const form = useForm<z.infer<typeof PostValidation>>({
-    resolver: zodResolver(PostValidation),
+  const validationSchema = action === "Update" ? UpdatePostValidation : PostValidation;
+  
+  type FormData = {
+    caption: string;
+    file: File[];
+    location?: string;
+    tags?: string;
+  };
+  
+  const form = useForm<FormData>({
+    resolver: zodResolver(validationSchema),
     defaultValues: {
       caption: post ? post?.caption : "",
       file: [],
@@ -50,11 +59,20 @@ const PostForm = ({ post, action }: PostFormProps) => {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof PostValidation>) {
+  async function onSubmit(values: FormData) {
     if (post && action === "Update") {
+      const postId = post.$id || post.id || post._id;
+      if (!postId) {
+        toast({ 
+          title: "Error", 
+          description: "Post ID not found. Please try again." 
+        });
+        return;
+      }
+
       const updatedPost = await updatePost({
         ...values,
-        postId: post.$id,
+        postId: postId,
         imageId: post?.imageId,
         imageUrl: post?.imageUrl,
       });
@@ -62,7 +80,7 @@ const PostForm = ({ post, action }: PostFormProps) => {
         toast({ title: "Please try again." });
       }
 
-      return router.push(`/posts/${post.$id}`);
+      return router.push(`/posts/${postId}`);
     }
 
     const userId = user?.id || user?._id || user?.$id;
@@ -116,7 +134,9 @@ const PostForm = ({ post, action }: PostFormProps) => {
           name="file"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="shad-form_label">Add Photos</FormLabel>
+              <FormLabel className="shad-form_label">
+                {action === "Update" ? "Change Photo (optional)" : "Add Photos"}
+              </FormLabel>
               <FormControl>
                 <FileUploader
                   fieldChange={field.onChange}

@@ -39,6 +39,24 @@ export const PostValidation = z.object({
   tags: z.string().optional(),
 });
 
+export const UpdatePostValidation = z.object({
+  caption: z.string().min(1, { message: "Caption is required" }),
+  file: z
+    .custom<File[]>()
+    .refine(
+      (files) => {
+        if (!files || files.length === 0) return true;
+        return files[0] && files[0].size <= 5 * 1024 * 1024;
+      },
+      {
+        message: "Image size must be less than 5MB",
+      }
+    )
+    .optional(),
+  location: z.string().optional(),
+  tags: z.string().optional(),
+});
+
 // ============================================================
 // PROFILE VALIDATION
 // ============================================================
