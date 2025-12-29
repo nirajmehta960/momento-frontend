@@ -773,6 +773,8 @@ export const useFollowUser = () => {
       return { previousFollowers, previousFollowing };
     },
     onError: (err, followingId, context) => {
+      const currentUserId = user?.id || user?._id || user?.$id;
+      
       // Rollback on error
       if (context?.previousFollowers) {
         queryClient.setQueryData(

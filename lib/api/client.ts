@@ -364,14 +364,15 @@ export const getPostById = async (postId: string): Promise<IPost> => {
     }
 
     return {
+      _id: postData._id || postData.id || postData.$id || "",
       $id: postData._id || postData.id || postData.$id,
-      id: postData._id || postData.id || postData.$id,
       creator: {
         $id: postData.creator?._id || postData.creator?.id || postData.creator?.$id,
         id: postData.creator?._id || postData.creator?.id || postData.creator?.$id,
         name: postData.creator?.name || "",
         username: postData.creator?.username || "",
         imageUrl: postData.creator?.imageUrl || "",
+        role: postData.creator?.role || "USER",
       },
       caption: postData.caption || "",
       imageUrl: postData.imageUrl || "",
@@ -379,6 +380,7 @@ export const getPostById = async (postId: string): Promise<IPost> => {
       location: postData.location || "",
       tags: postData.tags || [],
       likes: postData.likes || [],
+      saves: postData.saves || [],
       $createdAt: postData.createdAt,
       createdAt: postData.createdAt,
     };
