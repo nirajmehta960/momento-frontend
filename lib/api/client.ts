@@ -154,6 +154,7 @@ export const getUsers = async (params?: {
         imageUrl: user.imageUrl || "",
         bio: user.bio || "",
         role: user.role || "USER",
+        lastLogin: user.lastLogin,
       })),
     };
   } catch (error: any) {
@@ -661,6 +662,14 @@ export const getFollowers = async (userId: string): Promise<IFollow[]> => {
 export const getFollowing = async (userId: string): Promise<IFollow[]> => {
   const response = await apiClient.get<IFollow[]>(
     `/follows/following/${userId}`
+  );
+  return response.data;
+};
+
+// GET /api/follows/messagable/:userId - Get users who can be messaged (mutual follow)
+export const getMessagableUsers = async (userId: string): Promise<IUser[]> => {
+  const response = await apiClient.get<IUser[]>(
+    `/follows/messagable/${userId}`
   );
   return response.data;
 };

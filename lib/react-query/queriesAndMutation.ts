@@ -37,6 +37,7 @@ import {
   unfollowUser,
   getFollowers,
   getFollowing,
+  getMessagableUsers,
   getNotifications,
   getUnreadNotificationCount,
   markNotificationAsRead,
@@ -379,9 +380,10 @@ export const useDeletePost = () => {
   });
 };
 
-// useMutation - Like/unlike post (invalidates post queries and current user on success)
+// useMutation - Like/unlike post (optimistically updates cache)
 export const useLikePost = () => {
   const queryClient = useQueryClient();
+  const { user } = useUserContext();
   return useMutation({
     mutationFn: ({
       postId,
@@ -390,9 +392,45 @@ export const useLikePost = () => {
       postId: string;
       likesArray: string[];
     }) => likePost(postId, likesArray),
-    onSuccess: (data) => {
+    onMutate: async ({ postId, likesArray }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: QUERY_KEYS.GET_POST_BY_ID(postId),
+      });
+
+      // Snapshot previous value
+      const previousPost = queryClient.getQueryData(
+        QUERY_KEYS.GET_POST_BY_ID(postId)
+      );
+
+      // Optimistically update post likes
+      queryClient.setQueryData(
+        QUERY_KEYS.GET_POST_BY_ID(postId),
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            likes: likesArray,
+          };
+        }
+      );
+
+      return { previousPost };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousPost) {
+        queryClient.setQueryData(
+          QUERY_KEYS.GET_POST_BY_ID(variables.postId),
+          context.previousPost
+        );
+      }
+    },
+    onSuccess: (data, variables) => {
       const postId =
-        (data as any)?.$id || (data as any)?.id || (data as any)?._id;
+        (data as any)?.$id || (data as any)?.id || (data as any)?._id || variables.postId;
+      
+      // Invalidate to sync with server (Socket.IO will also update in real-time)
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_POST_BY_ID(postId),
       });
@@ -401,6 +439,9 @@ export const useLikePost = () => {
       });
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_POSTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.GET_INFINITE_POSTS],
       });
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_CURRENT_USER],
@@ -605,6 +646,20 @@ export const useGetFollowing = (userId: string) => {
   });
 };
 
+// useQuery - Get users who can be messaged (mutual follow relationship)
+export const useGetMessagableUsers = (userId: string) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.GET_MESSAGABLE_USERS(userId),
+    queryFn: () => {
+      if (!userId || userId === "undefined" || userId.trim() === "") {
+        throw new Error("User ID is required");
+      }
+      return getMessagableUsers(userId);
+    },
+    enabled: !!userId && userId !== "undefined" && userId.trim() !== "",
+  });
+};
+
 // ============================================================
 // FOLLOW MUTATIONS
 // ============================================================
@@ -632,13 +687,14 @@ export const useFollowUser = () => {
         QUERY_KEYS.GET_FOLLOWING,
       ]);
 
-      // Optimistically update followers list
+      const currentUserId = user?.id || user?._id || user?.$id;
+      if (!currentUserId) return { previousFollowers, previousFollowing };
+
+      // Optimistically update followers list of the user being followed
       queryClient.setQueryData(
         QUERY_KEYS.GET_FOLLOWERS(followingId),
         (old: any) => {
           if (!old) return old;
-          const currentUserId = user?.id || user?._id || user?.$id;
-          if (!currentUserId) return old;
 
           // Handle both array and object with documents property
           if (Array.isArray(old)) {
@@ -672,6 +728,48 @@ export const useFollowUser = () => {
         }
       );
 
+      // Optimistically update following list of current user
+      queryClient.setQueryData(
+        QUERY_KEYS.GET_FOLLOWING(currentUserId),
+        (old: any) => {
+          if (!old) return old;
+
+          // Get the user being followed from cache
+          const followedUser = queryClient.getQueryData(
+            QUERY_KEYS.GET_USER_BY_ID(followingId)
+          ) as any;
+
+          if (Array.isArray(old)) {
+            const alreadyFollowing = old.some(
+              (f: any) =>
+                (f._id || f.$id || f.id) === followingId
+            );
+            if (!alreadyFollowing) {
+              return [
+                ...old,
+                followedUser || { _id: followingId, id: followingId, $id: followingId },
+              ];
+            }
+          } else {
+            const following = old.documents || [];
+            const alreadyFollowing = following.some(
+              (f: any) =>
+                (f._id || f.$id || f.id) === followingId
+            );
+            if (!alreadyFollowing) {
+              return {
+                ...old,
+                documents: [
+                  ...following,
+                  followedUser || { _id: followingId, id: followingId, $id: followingId },
+                ],
+              };
+            }
+          }
+          return old;
+        }
+      );
+
       return { previousFollowers, previousFollowing };
     },
     onError: (err, followingId, context) => {
@@ -682,24 +780,42 @@ export const useFollowUser = () => {
           context.previousFollowers
         );
       }
-      if (context?.previousFollowing) {
+      if (context?.previousFollowing && currentUserId) {
         queryClient.setQueryData(
-          [QUERY_KEYS.GET_FOLLOWING],
+          QUERY_KEYS.GET_FOLLOWING(currentUserId),
           context.previousFollowing
         );
       }
     },
     onSuccess: (data, followingId) => {
+      const currentUserId = user?.id || user?._id || user?.$id;
+      
       // Invalidate to sync with server
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
       queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.GET_FOLLOWING],
+        queryKey: QUERY_KEYS.GET_FOLLOWING(followingId),
       });
+      if (currentUserId) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_FOLLOWING(currentUserId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_FOLLOWERS(currentUserId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_MESSAGABLE_USERS(currentUserId),
+        });
+      }
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_USER_BY_ID(followingId),
       });
+      if (currentUserId) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_USER_BY_ID(currentUserId),
+        });
+      }
     },
   });
 };
@@ -711,29 +827,34 @@ export const useUnfollowUser = () => {
   return useMutation({
     mutationFn: (followingId: string) => unfollowUser(followingId),
     onMutate: async (followingId: string) => {
+      const currentUserId = user?.id || user?._id || user?.$id;
+      
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
         queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
-      await queryClient.cancelQueries({
-        queryKey: [QUERY_KEYS.GET_FOLLOWING],
-      });
+      if (currentUserId) {
+        await queryClient.cancelQueries({
+          queryKey: QUERY_KEYS.GET_FOLLOWING(currentUserId),
+        });
+      }
 
       // Snapshot previous values
       const previousFollowers = queryClient.getQueryData(
         QUERY_KEYS.GET_FOLLOWERS(followingId)
       );
-      const previousFollowing = queryClient.getQueryData([
-        QUERY_KEYS.GET_FOLLOWING,
-      ]);
+      const previousFollowing = currentUserId
+        ? queryClient.getQueryData(
+            QUERY_KEYS.GET_FOLLOWING(currentUserId)
+          )
+        : null;
+      if (!currentUserId) return { previousFollowers, previousFollowing };
 
-      // Optimistically update followers list
+      // Optimistically update followers list of the user being unfollowed
       queryClient.setQueryData(
         QUERY_KEYS.GET_FOLLOWERS(followingId),
         (old: any) => {
           if (!old) return old;
-          const currentUserId = user?.id || user?._id || user?.$id;
-          if (!currentUserId) return old;
 
           // Handle both array and object with documents property
           if (Array.isArray(old)) {
@@ -754,9 +875,35 @@ export const useUnfollowUser = () => {
         }
       );
 
+      // Optimistically update following list of current user
+      queryClient.setQueryData(
+        QUERY_KEYS.GET_FOLLOWING(currentUserId),
+        (old: any) => {
+          if (!old) return old;
+
+          if (Array.isArray(old)) {
+            return old.filter(
+              (f: any) =>
+                (f._id || f.$id || f.id) !== followingId
+            );
+          } else {
+            const following = old.documents || [];
+            return {
+              ...old,
+              documents: following.filter(
+                (f: any) =>
+                  (f._id || f.$id || f.id) !== followingId
+              ),
+            };
+          }
+        }
+      );
+
       return { previousFollowers, previousFollowing };
     },
     onError: (err, followingId, context) => {
+      const currentUserId = user?.id || user?._id || user?.$id;
+      
       // Rollback on error
       if (context?.previousFollowers) {
         queryClient.setQueryData(
@@ -764,24 +911,42 @@ export const useUnfollowUser = () => {
           context.previousFollowers
         );
       }
-      if (context?.previousFollowing) {
+      if (context?.previousFollowing && currentUserId) {
         queryClient.setQueryData(
-          [QUERY_KEYS.GET_FOLLOWING],
+          QUERY_KEYS.GET_FOLLOWING(currentUserId),
           context.previousFollowing
         );
       }
     },
     onSuccess: (data, followingId) => {
+      const currentUserId = user?.id || user?._id || user?.$id;
+      
       // Invalidate to sync with server
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
       queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.GET_FOLLOWING],
+        queryKey: QUERY_KEYS.GET_FOLLOWING(followingId),
       });
+      if (currentUserId) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_FOLLOWING(currentUserId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_FOLLOWERS(currentUserId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_MESSAGABLE_USERS(currentUserId),
+        });
+      }
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_USER_BY_ID(followingId),
       });
+      if (currentUserId) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.GET_USER_BY_ID(currentUserId),
+        });
+      }
     },
   });
 };
@@ -877,11 +1042,33 @@ export const useMarkNotificationAsRead = () => {
   });
 };
 
-// useMutation - Mark all notifications as read (invalidates notifications and count on success)
+// useMutation - Mark all notifications as read (optimistically updates cache)
 export const useMarkAllNotificationsAsRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: markAllNotificationsAsRead,
+    onMutate: async () => {
+      // Optimistically mark all notifications as read
+      queryClient.setQueryData(
+        [QUERY_KEYS.GET_NOTIFICATIONS],
+        (old: any) => {
+          if (!old || !old.documents) return old;
+          return {
+            ...old,
+            documents: old.documents.map((n: any) => ({
+              ...n,
+              read: true,
+            })),
+          };
+        }
+      );
+
+      // Optimistically set unread count to 0
+      queryClient.setQueryData(
+        [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
+        0
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],
@@ -893,11 +1080,46 @@ export const useMarkAllNotificationsAsRead = () => {
   });
 };
 
-// useMutation - Delete notification (invalidates notifications and count on success)
+// useMutation - Delete notification (optimistically updates cache)
 export const useDeleteNotification = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (notificationId: string) => deleteNotification(notificationId),
+    onMutate: async (notificationId: string) => {
+      // Snapshot previous notification to check if it was unread
+      const previousNotifications = queryClient.getQueryData(
+        [QUERY_KEYS.GET_NOTIFICATIONS]
+      ) as any;
+      const deletedNotification = previousNotifications?.documents?.find(
+        (n: any) => (n._id || n.id) === notificationId
+      );
+      const wasUnread = deletedNotification && !deletedNotification.read;
+
+      // Optimistically remove notification
+      queryClient.setQueryData(
+        [QUERY_KEYS.GET_NOTIFICATIONS],
+        (old: any) => {
+          if (!old || !old.documents) return old;
+          return {
+            ...old,
+            documents: old.documents.filter(
+              (n: any) => (n._id || n.id) !== notificationId
+            ),
+          };
+        }
+      );
+
+      // Optimistically decrement unread count if notification was unread
+      if (wasUnread) {
+        queryClient.setQueryData(
+          [QUERY_KEYS.GET_UNREAD_NOTIFICATION_COUNT],
+          (old: any) => {
+            const currentCount = typeof old === "number" ? old : old?.count || 0;
+            return Math.max(0, currentCount - 1);
+          }
+        );
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [QUERY_KEYS.GET_NOTIFICATIONS],

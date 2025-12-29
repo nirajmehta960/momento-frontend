@@ -35,6 +35,7 @@ export const QUERY_KEYS = {
   // FOLLOWS
   GET_FOLLOWERS: (userId: string) => ["getFollowers", userId],
   GET_FOLLOWING: (userId: string) => ["getFollowing", userId],
+  GET_MESSAGABLE_USERS: (userId: string) => ["getMessagableUsers", userId],
 
   // SAVES
   GET_SAVED_POSTS: (userId: string) => ["getSavedPosts", userId],
