@@ -12,6 +12,8 @@ export default function MomentoLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isMessagesPage = pathname.startsWith("/messages");
+  const isChatPage = pathname.startsWith("/messages/") && pathname !== "/messages";
   const isPostDetailsPage = pathname.startsWith("/posts/");
 
   useEffect(() => {
@@ -21,15 +23,15 @@ export default function MomentoLayout({
   return (
     <div className="flex min-h-screen w-full">
       <LeftSidebar />
-      <div className="flex-1 md:ml-[80px] lg:ml-[300px] transition-all w-full">
+      <div className="flex flex-col flex-1 md:ml-[80px] lg:ml-[300px] transition-all w-full">
         <Topbar />
-        <section className="flex flex-1 md:h-screen min-h-[100vh] w-full pb-20 md:pb-0">
+        <section className="flex flex-1 md:h-[calc(100vh-60px)] min-h-[calc(100vh-60px)] w-full pb-20 md:pb-0">
           <div
             className={`flex flex-1 ${
-              isPostDetailsPage ? "" : "justify-center"
+              isChatPage || isPostDetailsPage ? "" : "justify-center"
             }`}
           >
-            <div className={`w-full ${isPostDetailsPage ? "" : "max-w-5xl"}`}>
+            <div className={`w-full ${isChatPage || isPostDetailsPage ? "" : "max-w-5xl"}`}>
               {children}
             </div>
           </div>
