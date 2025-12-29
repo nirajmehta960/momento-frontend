@@ -21,7 +21,8 @@ const isUserActive = (lastLogin: string | Date | null | undefined): boolean => {
   const now = new Date();
   const diffInMs = now.getTime() - loginDate.getTime();
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-  return diffInMinutes < 1;
+  // User is considered active if they logged in within the last 2 minutes
+  return diffInMinutes < 2;
 };
 
 const formatLastLogin = (
@@ -73,18 +74,23 @@ const ChatHeader = ({
 
   const ProfileContent = () => (
     <>
-      <Avatar className="h-12 w-12">
-        <AvatarImage
-          src={userImage || "/assets/icons/profile-placeholder.svg"}
-          alt={userName}
-        />
-        <AvatarFallback className="bg-primary text-primary-foreground">
-          {userName
-            .split(" ")
-            .map((n) => n[0])
-            .join("")}
-        </AvatarFallback>
-      </Avatar>
+      <div className="relative">
+        <Avatar className="h-12 w-12">
+          <AvatarImage
+            src={userImage || "/assets/icons/profile-placeholder.svg"}
+            alt={userName}
+          />
+          <AvatarFallback className="bg-primary text-primary-foreground">
+            {userName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")}
+          </AvatarFallback>
+        </Avatar>
+        {(isAI || isActive) && (
+          <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-background"></div>
+        )}
+      </div>
       <div>
         <h2 className="font-semibold text-foreground flex items-center gap-2">
           {userName}

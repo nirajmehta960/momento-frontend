@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import {
   useGetUsers,
   useGetFollowing,
+  useGetMessagableUsers,
   useGetConversationPartners,
   useMarkConversationAsRead,
 } from "@/lib/react-query/queriesAndMutation";
@@ -22,7 +23,8 @@ const isUserActive = (lastLogin: string | Date | null | undefined): boolean => {
   const now = new Date();
   const diffInMs = now.getTime() - loginDate.getTime();
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-  return diffInMinutes < 1;
+  // User is considered active if they logged in within the last 2 minutes
+  return diffInMinutes < 2;
 };
 
 interface MessagesListProps {
@@ -32,15 +34,33 @@ interface MessagesListProps {
 const MessagesList = ({ selectedUserId }: MessagesListProps) => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: usersData } = useGetUsers();
   const { user: currentUser } = useUserContext();
+  const { data: usersData } = useGetUsers();
   const { data: followingData } = useGetFollowing(currentUser?.id || "");
+  const { data: messagableUsersData } = useGetMessagableUsers(
+    currentUser?.id || ""
+  );
   const { data: conversationPartnersData } = useGetConversationPartners();
   const { mutate: markAsRead } = useMarkConversationAsRead();
 
   const allUsers = usersData?.documents || [];
   const following = Array.isArray(followingData) ? followingData : [];
+  const messagableUsers = messagableUsersData || [];
   const conversationPartners = conversationPartnersData?.partners || [];
+  
+  // Create a set of messagable user IDs for quick lookup
+  const messagableUserIds = useMemo(() => {
+    return new Set(
+      messagableUsers.map((user: any) => user._id || user.id || user.$id)
+    );
+  }, [messagableUsers]);
+  
+  // Create a set of following user IDs for fallback search
+  const followingIds = useMemo(() => {
+    return new Set(
+      following.map((user: any) => user._id || user.id || user.$id)
+    );
+  }, [following]);
 
   const partnerDataMap = useMemo(() => {
     const map = new Map();
@@ -56,16 +76,19 @@ const MessagesList = ({ selectedUserId }: MessagesListProps) => {
   }, [conversationPartners]);
 
   const filteredUsers = useMemo(() => {
-    const followingIds = new Set(
-      following.map((user: any) => user._id || user.id)
-    );
-
+    // Show ALL users with conversations (regardless of follow status)
+    // This preserves chat history even if follow relationship changes
     const usersWithConversations = allUsers
-      .filter((user: any) => user.id !== currentUser?.id)
+      .filter((user: any) => {
+        const userId = user.id || user._id || user.$id;
+        return userId !== currentUser?.id && partnerDataMap.has(userId);
+      })
       .map((user: any) => {
-        const partnerData = partnerDataMap.get(user.id);
+        const userId = user.id || user._id || user.$id;
+        const partnerData = partnerDataMap.get(userId);
         return {
           ...user,
+          id: userId,
           lastMessageTime: partnerData?.lastMessageTime,
           lastMessageContent: partnerData?.lastMessageContent,
           lastMessageSenderId: partnerData?.lastMessageSenderId,
@@ -76,31 +99,77 @@ const MessagesList = ({ selectedUserId }: MessagesListProps) => {
 
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase();
-      const searchedFollowing = allUsers
+      
+      // Search ALL messagable users (following, followers, and mutual)
+      // This includes users with and without existing conversations
+      const allSearchedMessagable = messagableUsers
         .filter((user: any) => {
+          const userId = user._id || user.id || user.$id;
           return (
-            user.id !== currentUser?.id &&
-            followingIds.has(user.id) &&
-            !partnerDataMap.has(user.id) &&
-            (user.name.toLowerCase().includes(searchLower) ||
-              user.username.toLowerCase().includes(searchLower))
+            userId !== currentUser?.id &&
+            (user.name?.toLowerCase().includes(searchLower) ||
+              user.username?.toLowerCase().includes(searchLower))
           );
         })
-        .map((user: any) => ({
-          ...user,
-          lastMessageTime: null,
-          lastMessageContent: null,
-          lastMessageSenderId: null,
-          unreadCount: 0,
-        }));
+        .map((user: any) => {
+          const userId = user._id || user.id || user.$id;
+          const partnerData = partnerDataMap.get(userId);
+          return {
+            ...user,
+            id: userId,
+            lastMessageTime: partnerData?.lastMessageTime || null,
+            lastMessageContent: partnerData?.lastMessageContent || null,
+            lastMessageSenderId: partnerData?.lastMessageSenderId || null,
+            unreadCount: partnerData?.unreadCount || 0,
+          };
+        });
 
-      const searchedConversations = usersWithConversations.filter(
-        (user: any) =>
-          user.name.toLowerCase().includes(searchLower) ||
-          user.username.toLowerCase().includes(searchLower)
-      );
+      // Fallback: Search in allUsers for users you're following (in case messagableUsers missed some)
+      const searchedFollowing = allUsers
+        .filter((user: any) => {
+          const userId = user.id || user._id || user.$id;
+          const isInMessagable = allSearchedMessagable.some(
+            (m: any) => m.id === userId
+          );
+          return (
+            userId !== currentUser?.id &&
+            !isInMessagable &&
+            followingIds.has(userId) &&
+            !partnerDataMap.has(userId) &&
+            (user.name?.toLowerCase().includes(searchLower) ||
+              user.username?.toLowerCase().includes(searchLower))
+          );
+        })
+        .map((user: any) => {
+          const userId = user.id || user._id || user.$id;
+          return {
+            ...user,
+            id: userId,
+            lastMessageTime: null,
+            lastMessageContent: null,
+            lastMessageSenderId: null,
+            unreadCount: 0,
+          };
+        });
 
-      return [...searchedConversations, ...searchedFollowing].sort(
+      // Also search users with conversations that might not be in messagable list
+      // (preserves chat history even if follow relationship changed)
+      const searchedConversations = usersWithConversations
+        .filter((user: any) => {
+          const userId = user.id || user._id || user.$id;
+          // Only include if not already in messagable results
+          const isInMessagable = allSearchedMessagable.some(
+            (m: any) => m.id === userId
+          );
+          return (
+            !isInMessagable &&
+            (user.name?.toLowerCase().includes(searchLower) ||
+              user.username?.toLowerCase().includes(searchLower))
+          );
+        });
+
+      // Combine: messagable users first (with conversations prioritized), then following fallback, then other conversations
+      return [...allSearchedMessagable, ...searchedFollowing, ...searchedConversations].sort(
         (a: any, b: any) => {
           if (a.lastMessageTime && !b.lastMessageTime) return -1;
           if (!a.lastMessageTime && b.lastMessageTime) return 1;
@@ -113,6 +182,7 @@ const MessagesList = ({ selectedUserId }: MessagesListProps) => {
       );
     }
 
+    // When no search, show all users with conversations
     return usersWithConversations.sort((a: any, b: any) => {
       if (!a.lastMessageTime && !b.lastMessageTime) return 0;
       if (!a.lastMessageTime) return 1;
@@ -125,6 +195,9 @@ const MessagesList = ({ selectedUserId }: MessagesListProps) => {
   }, [
     allUsers,
     following,
+    followingIds,
+    messagableUsers,
+    messagableUserIds,
     conversationPartners,
     partnerDataMap,
     currentUser?.id,
