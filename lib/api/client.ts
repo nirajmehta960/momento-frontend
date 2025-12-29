@@ -751,3 +751,91 @@ export const deletePostAdmin = async (postId: string, imageId?: string) => {
     throw error;
   }
 };
+
+// ============================================================
+// MESSAGES / CONVERSATIONS
+// ============================================================
+
+// GET /api/messages - Get AI chat history
+export const getChatHistory = async () => {
+  try {
+    const response = await apiClient.get<{ messages: any[] }>("/messages");
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// POST /api/messages/chat - Send message to AI
+export const sendMessage = async (content: string) => {
+  try {
+    const response = await apiClient.post<{
+      userMessage: any;
+      assistantMessage: any;
+    }>("/messages/chat", { content });
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// GET /api/conversations/:userId - Get user-to-user conversation
+export const getUserConversation = async (
+  userId: string
+): Promise<{ messages: any[] }> => {
+  try {
+    const response = await apiClient.get<{ messages: any[] }>(
+      `/conversations/${userId}`
+    );
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// POST /api/conversations/send - Send user-to-user message
+export const sendUserMessage = async (data: {
+  receiverId: string;
+  content: string;
+}) => {
+  try {
+    const response = await apiClient.post("/conversations/send", data);
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// GET /api/conversations - Get conversation partners
+export const getConversationPartners = async () => {
+  try {
+    const response = await apiClient.get<{ partners: any[] }>("/conversations");
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// GET /api/conversations/unread-count - Get unread message count
+export const getUnreadMessageCount = async (): Promise<number> => {
+  try {
+    const response = await apiClient.get<{ count: number }>(
+      "/conversations/unread-count"
+    );
+    return response.data.count;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// PUT /api/conversations/:userId/read - Mark conversation as read
+export const markConversationAsRead = async (userId: string) => {
+  try {
+    const response = await apiClient.put<{ success: boolean }>(
+      `/conversations/${userId}/read`
+    );
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};

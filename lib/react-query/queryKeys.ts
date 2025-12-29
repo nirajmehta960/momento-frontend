@@ -49,4 +49,10 @@ export const QUERY_KEYS = {
     "getExternalDetails",
     contentId,
   ],
+
+  // MESSAGES / CONVERSATIONS
+  GET_CHAT_HISTORY: ["getChatHistory"],
+  GET_USER_CONVERSATION: (userId: string) => ["getUserConversation", userId],
+  GET_CONVERSATION_PARTNERS: ["getConversationPartners"],
+  GET_UNREAD_MESSAGE_COUNT: ["getUnreadMessageCount"],
 };
