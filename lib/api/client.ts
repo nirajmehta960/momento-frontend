@@ -756,23 +756,23 @@ export const deletePostAdmin = async (postId: string, imageId?: string) => {
 // MESSAGES / CONVERSATIONS
 // ============================================================
 
-// GET /api/messages - Get AI chat history
+// GET /api/momento-ai - Get AI chat history
 export const getChatHistory = async () => {
   try {
-    const response = await apiClient.get<{ messages: any[] }>("/messages");
+    const response = await apiClient.get<{ messages: any[] }>("/momento-ai");
     return response.data;
   } catch (error: any) {
     throw error;
   }
 };
 
-// POST /api/messages/chat - Send message to AI
+// POST /api/momento-ai/chat - Send message to AI
 export const sendMessage = async (content: string) => {
   try {
     const response = await apiClient.post<{
       userMessage: any;
       assistantMessage: any;
-    }>("/messages/chat", { content });
+    }>("/momento-ai/chat", { content });
     return response.data;
   } catch (error: any) {
     throw error;
