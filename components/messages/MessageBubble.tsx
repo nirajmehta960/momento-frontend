@@ -107,80 +107,80 @@ const MessageBubble = ({
           }`}
         >
           <div
-            className={`px-4 py-2 rounded-2xl max-w-md ${
+          className={`px-4 py-2 rounded-2xl max-w-md ${
               isUser
                 ? "bg-primary text-primary-foreground"
                 : "bg-card text-foreground border border-border"
-            }`}
-          >
-            {message.imageUrl && !imageError && (
-              <div className="mb-3 relative group">
-                <img
-                  src={message.imageUrl}
-                  alt="Generated image"
-                  className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                  onError={() => setImageError(true)}
-                  onClick={handleImageClick}
-                  style={{ maxWidth: "400px", width: "100%" }}
-                />
-                <button
-                  onClick={handleDownloadImage}
+          }`}
+        >
+          {message.imageUrl && !imageError && (
+            <div className="mb-3 relative group">
+              <img
+                src={message.imageUrl}
+                alt="Generated image"
+                className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                onError={() => setImageError(true)}
+                onClick={handleImageClick}
+                style={{ maxWidth: "400px", width: "100%" }}
+              />
+              <button
+                onClick={handleDownloadImage}
                   className="absolute top-2 right-2 bg-card/90 hover:bg-card text-foreground px-3 py-1.5 rounded-md text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 z-10"
-                  title="Download image"
-                >
-                  <Download className="w-3 h-3" />
-                  Download
-                </button>
-              </div>
-            )}
+                title="Download image"
+              >
+                <Download className="w-3 h-3" />
+                Download
+              </button>
+            </div>
+          )}
 
-            {message.content && (
-              <div className="text-sm">
-                <ReactMarkdown
-                  components={{
-                    a: ({ node, ...props }) => (
-                      <a
-                        {...props}
-                        className={`${
-                          isUser
-                            ? "text-blue-100 hover:text-white"
-                            : "text-blue-400 hover:text-blue-300"
-                        } underline`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      />
-                    ),
-                    ul: ({ node, ...props }) => (
-                      <ul
-                        {...props}
-                        className="list-disc list-inside space-y-1 my-2"
-                      />
-                    ),
-                    ol: ({ node, ...props }) => (
-                      <ol
-                        {...props}
-                        className="list-decimal list-inside space-y-1 my-2"
-                      />
-                    ),
-                    li: ({ node, ...props }) => (
-                      <li {...props} className="ml-2" />
-                    ),
-                    strong: ({ node, ...props }) => (
-                      <strong {...props} className="font-bold" />
-                    ),
-                    em: ({ node, ...props }) => (
-                      <em {...props} className="italic" />
-                    ),
-                    p: ({ node, ...props }) => (
-                      <p {...props} className="mb-2 last:mb-0" />
-                    ),
-                  }}
-                >
-                  {message.content}
-                </ReactMarkdown>
-              </div>
-            )}
-          </div>
+          {message.content && (
+            <div className="text-sm">
+              <ReactMarkdown
+                components={{
+                  a: ({ node, ...props }) => (
+                    <a
+                      {...props}
+                      className={`${
+                        isUser
+                          ? "text-blue-100 hover:text-white"
+                          : "text-blue-400 hover:text-blue-300"
+                      } underline`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  ),
+                  ul: ({ node, ...props }) => (
+                    <ul
+                      {...props}
+                      className="list-disc list-inside space-y-1 my-2"
+                    />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol
+                      {...props}
+                      className="list-decimal list-inside space-y-1 my-2"
+                    />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li {...props} className="ml-2" />
+                  ),
+                  strong: ({ node, ...props }) => (
+                    <strong {...props} className="font-bold" />
+                  ),
+                  em: ({ node, ...props }) => (
+                    <em {...props} className="italic" />
+                  ),
+                  p: ({ node, ...props }) => (
+                    <p {...props} className="mb-2 last:mb-0" />
+                  ),
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
         </div>
         <span className="text-xs text-muted-foreground px-1">
           {timeAgo === "less than a minute" ? "Now" : timeAgo}

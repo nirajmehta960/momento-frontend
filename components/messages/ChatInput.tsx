@@ -56,17 +56,17 @@ const ChatInput = ({ onSend, isLoading }: ChatInputProps) => {
             className="w-auto p-0 border-0 bg-transparent shadow-none"
             side="top"
             align="start"
-          >
-            <div className="w-[280px] sm:w-[320px] md:w-[350px]">
-              <EmojiPicker
-                onEmojiClick={handleEmojiClick}
-                theme={Theme.DARK}
-                width="100%"
-                height={350}
-                previewConfig={{ showPreview: false }}
-                skinTonesDisabled
-              />
-            </div>
+            >
+              <div className="w-[280px] sm:w-[320px] md:w-[350px]">
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  theme={Theme.DARK}
+                  width="100%"
+                  height={350}
+                  previewConfig={{ showPreview: false }}
+                  skinTonesDisabled
+                />
+              </div>
           </PopoverContent>
         </Popover>
         <Input

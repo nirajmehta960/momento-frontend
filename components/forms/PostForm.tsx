@@ -70,11 +70,14 @@ const PostForm = ({ post, action }: PostFormProps) => {
         return;
       }
 
+      // When updating, only send caption, location, and tags
+      // Images cannot be changed
       const updatedPost = await updatePost({
-        ...values,
+        caption: values.caption,
+        location: values.location,
+        tags: values.tags,
         postId: postId,
-        imageId: post?.imageId,
-        imageUrl: post?.imageUrl,
+        // Do not include file, imageId, or imageUrl
       });
       if (!updatedPost) {
         toast({ title: "Please try again." });
@@ -129,24 +132,41 @@ const PostForm = ({ post, action }: PostFormProps) => {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="file"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="shad-form_label">
-                {action === "Update" ? "Change Photo (optional)" : "Add Photos"}
-              </FormLabel>
-              <FormControl>
-                <FileUploader
-                  fieldChange={field.onChange}
-                  mediaUrl={post?.imageUrl}
+        {action === "Create" && (
+          <FormField
+            control={form.control}
+            name="file"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="shad-form_label">Add Photos</FormLabel>
+                <FormControl>
+                  <FileUploader
+                    fieldChange={field.onChange}
+                    mediaUrl={post?.imageUrl}
+                  />
+                </FormControl>
+                <FormMessage className="shad-form_message" />
+              </FormItem>
+            )}
+          />
+        )}
+        {action === "Update" && (
+          <div className="space-y-2">
+            <FormLabel className="shad-form_label">Post Image</FormLabel>
+            <div className="flex flex-center flex-col bg-dark-4 rounded-xl p-4">
+              <div className="flex flex-1 justify-center items-center w-full p-3 lg:p-4 h-48 lg:h-64 overflow-hidden">
+                <img 
+                  src={post?.imageUrl} 
+                  alt="Post" 
+                  className="file_uploader-img max-h-full max-w-full object-contain"
                 />
-              </FormControl>
-              <FormMessage className="shad-form_message" />
-            </FormItem>
-          )}
-        />
+              </div>
+              <p className="text-muted-foreground text-sm mt-2">
+                Image cannot be changed when editing a post
+              </p>
+            </div>
+          </div>
+        )}
         <FormField
           control={form.control}
           name="location"

@@ -27,7 +27,7 @@ export const useSocket = () => {
             setupSocketListeners(socket);
           } else {
             socket.once("connect", () => {
-              setupSocketListeners(socket);
+      setupSocketListeners(socket);
             });
           }
         }
@@ -45,19 +45,19 @@ export const useSocket = () => {
         // If user sent the message, the partner is the receiver
         // If user received the message, the partner is the sender
         const partnerId =
-          message.senderId === user.id ? message.receiverId : message.senderId;
+        message.senderId === user.id ? message.receiverId : message.senderId;
 
         // Update the conversation cache if it exists
-        queryClient.setQueryData(
+      queryClient.setQueryData(
           QUERY_KEYS.GET_USER_CONVERSATION(partnerId),
-          (old: any) => {
+        (old: any) => {
             if (!old) {
               // If conversation doesn't exist yet, create it
               return {
                 messages: [message],
               };
             }
-            const messages = old.messages || [];
+          const messages = old.messages || [];
             // Check if message already exists (avoid duplicates from optimistic updates or multiple events)
             const exists = messages.some(
               (m: any) => m._id === message._id || (m._id?.startsWith("temp-") && m.content === message.content && m.senderId === message.senderId)
@@ -73,12 +73,12 @@ export const useSocket = () => {
                 ),
               };
             }
-            return {
-              ...old,
-              messages: [...messages, message],
-            };
-          }
-        );
+          return {
+            ...old,
+            messages: [...messages, message],
+          };
+        }
+      );
 
         // Optimistically update conversation partners list with new message
         queryClient.setQueryData(

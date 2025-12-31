@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return false;
     } catch (error) {
-      console.error("Error checking auth user:", error);
+      // Silently fail - user will be redirected to sign-in if needed
       return false;
     } finally {
       setIsLoading(false);
@@ -64,7 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(false);
       queryClient.clear();
     } catch (error) {
-      console.error("Error signing out:", error);
+      // Silently fail - clear local state anyway
+      setUser(INITIAL_USER);
+      setIsAuthenticated(false);
+      queryClient.clear();
     }
   };
 

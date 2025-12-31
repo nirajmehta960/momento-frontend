@@ -71,8 +71,6 @@ const SigninForm = () => {
         // Silent fail - user already navigated
       });
     } catch (error: any) {
-      console.error("Sign-in error:", error);
-      
       // Handle axios error response
       let errorMessage = "Invalid email/username or password. Please try again.";
       

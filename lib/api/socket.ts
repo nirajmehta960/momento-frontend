@@ -43,9 +43,9 @@ const createSocket = (userId?: string): Promise<any> => {
     }
 
     // Create new socket instance
-    socket = socketIO.io(apiBaseUrl, {
-      withCredentials: true,
-      transports: ["websocket", "polling"],
+      socket = socketIO.io(apiBaseUrl, {
+        withCredentials: true,
+        transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
@@ -85,12 +85,12 @@ const createSocket = (userId?: string): Promise<any> => {
       if (socket.connected) {
         onConnect();
       }
-    });
+      });
   }).catch((error) => {
     connectingPromise = null;
     throw error;
   });
-  
+
   return connectingPromise;
 };
 

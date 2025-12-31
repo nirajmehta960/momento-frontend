@@ -75,18 +75,18 @@ const ChatHeader = ({
   const ProfileContent = () => (
     <>
       <div className="relative">
-        <Avatar className="h-12 w-12">
-          <AvatarImage
-            src={userImage || "/assets/icons/profile-placeholder.svg"}
-            alt={userName}
-          />
+      <Avatar className="h-12 w-12">
+        <AvatarImage
+          src={userImage || "/assets/icons/profile-placeholder.svg"}
+          alt={userName}
+        />
           <AvatarFallback className="bg-primary text-primary-foreground">
-            {userName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")}
-          </AvatarFallback>
-        </Avatar>
+          {userName
+            .split(" ")
+            .map((n) => n[0])
+            .join("")}
+        </AvatarFallback>
+      </Avatar>
         {(isAI || isActive) && (
           <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-background"></div>
         )}

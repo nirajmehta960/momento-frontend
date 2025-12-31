@@ -808,7 +808,7 @@ export const useFollowUser = () => {
         });
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.GET_MESSAGABLE_USERS(currentUserId),
-        });
+      });
       }
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_USER_BY_ID(followingId),
@@ -836,9 +836,9 @@ export const useUnfollowUser = () => {
         queryKey: QUERY_KEYS.GET_FOLLOWERS(followingId),
       });
       if (currentUserId) {
-        await queryClient.cancelQueries({
+      await queryClient.cancelQueries({
           queryKey: QUERY_KEYS.GET_FOLLOWING(currentUserId),
-        });
+      });
       }
 
       // Snapshot previous values
@@ -939,7 +939,7 @@ export const useUnfollowUser = () => {
         });
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.GET_MESSAGABLE_USERS(currentUserId),
-        });
+      });
       }
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.GET_USER_BY_ID(followingId),
@@ -1259,7 +1259,7 @@ export const useSendUserMessage = () => {
       // Optimistically add message immediately
       const optimisticMessage = {
         _id: `temp-${Date.now()}`,
-        senderId: user?.id,
+          senderId: user?.id,
         receiverId: variables.receiverId,
         content: variables.content,
         createdAt: new Date().toISOString(),

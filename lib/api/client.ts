@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type {
   INewUser,
   ISignIn,
@@ -14,6 +14,7 @@ import type {
   ISave,
   INotification,
 } from "@/types";
+import type { ApiError, AxiosErrorResponse } from "@/lib/types/errors";
 
 // API base URL from environment variable
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -54,32 +55,55 @@ export const signOutAccount = async (): Promise<void> => {
 // Also fetches saved posts and includes them in the user object
 export const getCurrentUser = async (): Promise<IUser | null> => {
   try {
-    const response = await apiClient.post<IUser | null>("/users/profile");
-    if (!response.data) {
+    const response = await apiClient.post<{ documents: IUser[] } | IUser | null>("/users/profile");
+    
+    // Handle standardized response format { documents: [] }
+    let user: IUser | null = null;
+    if (response.data) {
+      if (Array.isArray((response.data as any).documents)) {
+        // Standardized format
+        const data = response.data as { documents: IUser[] };
+        user = data.documents && data.documents.length > 0 ? data.documents[0] : null;
+      } else if ((response.data as any)._id || (response.data as any).id || (response.data as any).$id) {
+        // Direct user object (backward compatibility)
+        user = response.data as IUser;
+      }
+    }
+    
+    if (!user) {
       return null;
     }
-    const user = response.data;
+    
+    // Extract user ID - handle different ID field formats
+    const userId = user._id || user.id || user.$id;
+    
+    // If no user ID found, return null (invalid user data)
+    if (!userId) {
+      return null;
+    }
 
     // Fetch saved posts for the user
     try {
       const savesResponse = await apiClient.get(
-        `/saves/user/${(user as any)._id || (user as any).id}`
+        `/saves/user/${userId}`
       );
       const saves = savesResponse.data.save || savesResponse.data || [];
 
+      // Return user with properly mapped IDs
       return {
         ...user,
-        id: (user as any)._id || (user as any).id,
-        $id: (user as any)._id || (user as any).id,
-        save: saves.map((save: any) => ({
-          _id: save._id || save.$id || save.id,
-          $id: save._id || save.$id || save.id,
-          id: save._id || save.$id || save.id,
+        id: userId,
+        _id: userId,
+        $id: userId,
+        save: saves.map((save: ISave) => ({
+          _id: save._id,
+          $id: save._id,
+          id: save._id,
           post: save.post
             ? {
-                _id: save.post._id || save.post.$id || save.post.id,
-                $id: save.post._id || save.post.$id || save.post.id,
-                id: save.post._id || save.post.$id || save.post.id,
+                _id: save.post._id,
+                $id: save.post._id,
+                id: save.post._id,
                 creator: save.post.creator
                   ? {
                       _id:
@@ -113,14 +137,16 @@ export const getCurrentUser = async (): Promise<IUser | null> => {
       };
     } catch (savesError) {
       // If saves fetch fails, return user without saves
+      // Return user with properly mapped IDs
       return {
         ...user,
-        id: (user as any)._id || (user as any).id,
-        $id: (user as any)._id || (user as any).id,
+        id: userId,
+        _id: userId,
+        $id: userId,
         save: [],
       };
     }
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -145,7 +171,7 @@ export const getUsers = async (params?: {
     const response = await apiClient.get("/users", { params });
     const users = response.data.documents || response.data || [];
     return {
-      documents: users.map((user: any) => ({
+      documents: users.map((user: IUser) => ({
         $id: user._id || user.id,
         id: user._id || user.id,
         name: user.name,
@@ -157,7 +183,7 @@ export const getUsers = async (params?: {
         lastLogin: user.lastLogin,
       })),
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -165,7 +191,7 @@ export const getUsers = async (params?: {
 // PUT /api/users/:userId - Update user profile
 export const updateUser = async (user: IUpdateUser) => {
   try {
-    const payload: any = {
+    const payload: Partial<IUpdateUser> = {
       name: user.name,
       bio: user.bio,
       imageUrl: user.imageUrl,
@@ -189,7 +215,7 @@ export const updateUser = async (user: IUpdateUser) => {
       imageUrl: updatedUser.imageUrl || "",
       bio: updatedUser.bio || "",
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -254,9 +280,9 @@ export const getRecentPosts = async (params?: {
     const response = await apiClient.get("/posts", { params });
     const posts = response.data.documents || response.data || [];
     return {
-      documents: posts.map((post: any) => ({
-        $id: post._id || post.id,
-        id: post._id || post.id,
+      documents: posts.map((post: IPost) => ({
+        $id: post._id,
+        id: post._id,
         creator: {
           $id: post.creator?._id || post.creator?.id,
           id: post.creator?._id || post.creator?.id,
@@ -274,7 +300,7 @@ export const getRecentPosts = async (params?: {
         createdAt: post.createdAt,
       })),
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -295,9 +321,9 @@ export const getInfinitePosts = async ({
     );
     const posts = response.data.documents || response.data || [];
     return {
-      documents: posts.map((post: any) => ({
-        $id: post._id || post.id,
-        id: post._id || post.id,
+      documents: posts.map((post: IPost) => ({
+        $id: post._id,
+        id: post._id,
         creator: {
           $id: post.creator?._id || post.creator?.id,
           id: post.creator?._id || post.creator?.id,
@@ -315,7 +341,7 @@ export const getInfinitePosts = async ({
         createdAt: post.createdAt,
       })),
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -328,9 +354,9 @@ export const searchPosts = async (searchTerm: string) => {
     });
     const posts = response.data.documents || response.data || [];
     return {
-      documents: posts.map((post: any) => ({
-        $id: post._id || post.id,
-        id: post._id || post.id,
+      documents: posts.map((post: IPost) => ({
+        $id: post._id,
+        id: post._id,
         creator: {
           $id: post.creator?._id || post.creator?.id,
           id: post.creator?._id || post.creator?.id,
@@ -348,7 +374,7 @@ export const searchPosts = async (searchTerm: string) => {
         createdAt: post.createdAt,
       })),
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -384,7 +410,7 @@ export const getPostById = async (postId: string): Promise<IPost> => {
       $createdAt: postData.createdAt,
       createdAt: postData.createdAt,
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -407,10 +433,10 @@ export const createPost = async (post: INewPost): Promise<IPost> => {
 
 // PUT /api/posts/:postId - Update post (FormData: optional file, caption, location, tags)
 export const updatePost = async (post: IUpdatePost): Promise<IPost> => {
+  // Images cannot be changed when editing a post
+  // Only send caption, location, and tags
   const formData = new FormData();
-  if (post.file && post.file[0]) {
-    formData.append("file", post.file[0]);
-  }
+  // Do not append file - images cannot be changed during updates
   if (post.caption) formData.append("caption", post.caption);
   if (post.location) formData.append("location", post.location);
   if (post.tags) formData.append("tags", post.tags);
@@ -449,7 +475,7 @@ export const likePost = async (postId: string, likesArray: string[]) => {
       id: postData._id || postData.id,
       likes: postData.likes || [],
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -458,9 +484,9 @@ export const likePost = async (postId: string, likesArray: string[]) => {
 export const getUserPosts = async (userId: string): Promise<IPost[]> => {
   const response = await apiClient.get(`/posts/user/${userId}`);
   const posts = response.data.documents || response.data || [];
-  return posts.map((post: any) => ({
-    $id: post._id || post.id,
-    id: post._id || post.id,
+  return posts.map((post: IPost) => ({
+    $id: post._id,
+    id: post._id,
     creator: {
       $id: post.creator?._id || post.creator?.id,
       id: post.creator?._id || post.creator?.id,
@@ -485,9 +511,9 @@ export const getLikedPosts = async (userId: string) => {
     const response = await apiClient.get(`/posts/user/${userId}/liked`);
     const posts = response.data.documents || response.data || [];
     return {
-      documents: posts.map((post: any) => ({
-        $id: post._id || post.id,
-        id: post._id || post.id,
+      documents: posts.map((post: IPost) => ({
+        $id: post._id,
+        id: post._id,
         creator: {
           $id: post.creator?._id || post.creator?.id,
           id: post.creator?._id || post.creator?.id,
@@ -505,7 +531,7 @@ export const getLikedPosts = async (userId: string) => {
         createdAt: post.createdAt,
       })),
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -526,7 +552,7 @@ export const savePost = async (postId: string, userId: string) => {
         id: response.data.post || response.data.post?._id,
       },
     };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -538,7 +564,7 @@ export const deleteSavedPost = async (postId: string) => {
       data: { postId },
     });
     return { status: "ok" };
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -557,10 +583,11 @@ export const getSavedPosts = async (userId: string): Promise<ISave[]> => {
 export const createReview = async (review: INewReview): Promise<IReview> => {
   const response = await apiClient.post<IReview>("/reviews", review);
   // Map backend 'review' field to frontend 'comment' field for type compatibility
+  const data = response.data as IReview & { review?: string; user?: IUser };
   return {
-    ...response.data,
-    comment: (response.data as any).review || response.data.comment,
-    creator: (response.data as any).user || response.data.creator,
+    ...data,
+    comment: data.review || data.comment,
+    creator: data.user || data.creator,
   };
 };
 
@@ -571,10 +598,11 @@ export const updateReview = async (review: IUpdateReview): Promise<IReview> => {
     review
   );
   // Map backend 'review' field to frontend 'comment' field for type compatibility
+  const data = response.data as IReview & { review?: string; user?: IUser };
   return {
-    ...response.data,
-    comment: (response.data as any).review || response.data.comment,
-    creator: (response.data as any).user || response.data.creator,
+    ...data,
+    comment: data.review || data.comment,
+    creator: data.user || data.creator,
   };
 };
 
@@ -732,7 +760,7 @@ export const searchExternal = async (query: string, page?: number) => {
       params: { q: query, page: page || 1 },
     });
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -742,7 +770,7 @@ export const getExternalDetails = async (id: string) => {
   try {
     const response = await apiClient.get(`/external/details/${id}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -756,7 +784,7 @@ export const deleteUserAccount = async (userId: string) => {
   try {
     const response = await apiClient.delete(`/users/${userId}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -766,7 +794,7 @@ export const getAllUsersAdmin = async () => {
   try {
     const response = await apiClient.get(`/admin/users`);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -776,7 +804,7 @@ export const deleteUserAdmin = async (userId: string) => {
   try {
     const response = await apiClient.delete(`/users/${userId}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -786,7 +814,7 @@ export const deletePostAdmin = async (postId: string, imageId?: string) => {
   try {
     const response = await apiClient.delete(`/posts/${postId}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -800,7 +828,7 @@ export const getChatHistory = async () => {
   try {
     const response = await apiClient.get<{ messages: any[] }>("/momento-ai");
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -813,7 +841,7 @@ export const sendMessage = async (content: string) => {
       assistantMessage: any;
     }>("/momento-ai/chat", { content });
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -827,7 +855,7 @@ export const getUserConversation = async (
       `/conversations/${userId}`
     );
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -840,7 +868,7 @@ export const sendUserMessage = async (data: {
   try {
     const response = await apiClient.post("/conversations/send", data);
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -850,7 +878,7 @@ export const getConversationPartners = async () => {
   try {
     const response = await apiClient.get<{ partners: any[] }>("/conversations");
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -862,7 +890,7 @@ export const getUnreadMessageCount = async (): Promise<number> => {
       "/conversations/unread-count"
     );
     return response.data.count;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };
@@ -874,7 +902,7 @@ export const markConversationAsRead = async (userId: string) => {
       `/conversations/${userId}/read`
     );
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     throw error;
   }
 };

@@ -143,12 +143,12 @@ const MessagesList = ({ selectedUserId }: MessagesListProps) => {
         .map((user: any) => {
           const userId = user.id || user._id || user.$id;
           return {
-            ...user,
+          ...user,
             id: userId,
-            lastMessageTime: null,
-            lastMessageContent: null,
-            lastMessageSenderId: null,
-            unreadCount: 0,
+          lastMessageTime: null,
+          lastMessageContent: null,
+          lastMessageSenderId: null,
+          unreadCount: 0,
           };
         });
 
