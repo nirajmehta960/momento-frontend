@@ -157,8 +157,47 @@ export const getCurrentUser = async (): Promise<IUser | null> => {
 
 // GET /api/users/:userId - Get user by ID
 export const getUserById = async (userId: string): Promise<IUser> => {
-  const response = await apiClient.get<IUser>(`/users/${userId}`);
-  return response.data;
+  try {
+    const response = await apiClient.get<{ documents: IUser[] } | IUser>(`/users/${userId}`);
+    
+    // Handle standardized response format { documents: [] }
+    let user: IUser | null = null;
+    if (response.data) {
+      // Check if response has documents array (standardized format)
+      if ((response.data as any).documents && Array.isArray((response.data as any).documents)) {
+        const data = response.data as { documents: IUser[] };
+        user = data.documents.length > 0 ? data.documents[0] : null;
+      } 
+      // Check if response is a direct user object (backward compatibility)
+      else if ((response.data as any)._id || (response.data as any).id || (response.data as any).$id) {
+        user = response.data as IUser;
+      }
+      // If response.data itself is an array (shouldn't happen but handle it)
+      else if (Array.isArray(response.data) && response.data.length > 0) {
+        user = response.data[0] as IUser;
+      }
+    }
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    // Extract user ID and ensure all ID fields are present
+    const userIdentifier = user._id || user.id || user.$id;
+    
+    if (!userIdentifier) {
+      throw new Error("Invalid user data: missing ID");
+    }
+    
+    return {
+      ...user,
+      _id: userIdentifier,
+      id: userIdentifier,
+      $id: userIdentifier,
+    };
+  } catch (error) {
+    throw error;
+  }
 };
 
 // GET /api/users - Get all users (query params: ?role=ADMIN, ?name=searchTerm)
@@ -382,19 +421,39 @@ export const searchPosts = async (searchTerm: string) => {
 // GET /api/posts/:postId - Get post by ID
 export const getPostById = async (postId: string): Promise<IPost> => {
   try {
-    const response = await apiClient.get(`/posts/${postId}`);
-    const postData = response.data;
+    const response = await apiClient.get<{ documents: IPost[] } | IPost>(`/posts/${postId}`);
+    
+    // Handle standardized response format { documents: [] }
+    let postData: IPost | null = null;
+    if (response.data) {
+      if (Array.isArray((response.data as any).documents)) {
+        // Standardized format
+        const data = response.data as { documents: IPost[] };
+        postData = data.documents && data.documents.length > 0 ? data.documents[0] : null;
+      } else if ((response.data as any)._id || (response.data as any).id || (response.data as any).$id) {
+        // Direct post object (backward compatibility)
+        postData = response.data as IPost;
+      }
+    }
 
     if (!postData) {
       throw new Error("Post not found");
     }
 
+    // Extract post ID
+    const postIdValue = postData._id || postData.id || postData.$id || "";
+    
+    // Extract creator ID
+    const creatorId = postData.creator?._id || postData.creator?.id || postData.creator?.$id;
+
     return {
-      _id: postData._id || postData.id || postData.$id || "",
-      $id: postData._id || postData.id || postData.$id,
+      _id: postIdValue,
+      $id: postIdValue,
+      id: postIdValue,
       creator: {
-        $id: postData.creator?._id || postData.creator?.id || postData.creator?.$id,
-        id: postData.creator?._id || postData.creator?.id || postData.creator?.$id,
+        _id: creatorId,
+        $id: creatorId,
+        id: creatorId,
         name: postData.creator?.name || "",
         username: postData.creator?.username || "",
         imageUrl: postData.creator?.imageUrl || "",
@@ -407,8 +466,8 @@ export const getPostById = async (postId: string): Promise<IPost> => {
       tags: postData.tags || [],
       likes: postData.likes || [],
       saves: postData.saves || [],
-      $createdAt: postData.createdAt,
-      createdAt: postData.createdAt,
+      $createdAt: postData.createdAt || postData.$createdAt,
+      createdAt: postData.createdAt || postData.$createdAt,
     };
   } catch (error) {
     throw error;

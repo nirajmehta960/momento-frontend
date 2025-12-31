@@ -87,7 +87,7 @@ const Profile = () => {
   const userId = Array.isArray(id) ? id[0] : id || "";
   // Ensure userId is valid before making API calls
   const validUserId = userId && userId !== "undefined" && userId.trim() !== "" ? userId : "";
-  const { data: currentUser } = useGetUserById(validUserId);
+  const { data: currentUser, isLoading: isLoadingUser, isError: isUserError, error: userError } = useGetUserById(validUserId);
   const { data: userPosts } = useGetUserPosts(validUserId);
   const { data: followers = [], isLoading: isLoadingFollowers } =
     useGetFollowers(validUserId);
@@ -189,12 +189,33 @@ const Profile = () => {
     });
   };
 
-  if (!currentUser)
+  // Show loader while loading or if userId is invalid
+  if (isLoadingUser || !validUserId) {
     return (
       <div className="flex-center w-full h-screen">
         <Loader />
       </div>
     );
+  }
+
+  // Show error state if user fetch failed
+  if (isUserError || !currentUser) {
+    return (
+      <div className="flex-center w-full h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <Oops />
+          <p className="text-light-1 text-center">
+            {(userError as any)?.response?.data?.error || 
+             (userError as any)?.message || 
+             "Failed to load user profile"}
+          </p>
+          <Button onClick={() => router.push("/")} variant="outline">
+            Go Back Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const posts =
     (userPosts as any)?.documents ||
