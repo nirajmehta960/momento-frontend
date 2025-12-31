@@ -440,18 +440,17 @@ export const getPostById = async (postId: string): Promise<IPost> => {
       throw new Error("Post not found");
     }
 
-    // Extract post ID
-    const postIdValue = postData._id || postData.id || postData.$id || "";
+    // Extract post ID (handle both IPost interface and actual response data)
+    const postIdValue = postData._id || (postData as any).id || postData.$id || "";
     
-    // Extract creator ID
-    const creatorId = postData.creator?._id || postData.creator?.id || postData.creator?.$id;
+    // Extract creator ID (handle both IUser interface and actual response data)
+    const creatorId = postData.creator?._id || (postData.creator as any)?.id || postData.creator?.$id;
 
     return {
       _id: postIdValue,
       $id: postIdValue,
-      id: postIdValue,
       creator: {
-        _id: creatorId,
+        _id: creatorId || "",
         $id: creatorId,
         id: creatorId,
         name: postData.creator?.name || "",
@@ -466,9 +465,9 @@ export const getPostById = async (postId: string): Promise<IPost> => {
       tags: postData.tags || [],
       likes: postData.likes || [],
       saves: postData.saves || [],
-      $createdAt: postData.createdAt || postData.$createdAt,
-      createdAt: postData.createdAt || postData.$createdAt,
-    };
+      $createdAt: postData.createdAt || postData.$createdAt || new Date().toISOString(),
+      createdAt: postData.createdAt || postData.$createdAt || new Date().toISOString(),
+    } as IPost;
   } catch (error) {
     throw error;
   }
