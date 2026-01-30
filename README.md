@@ -10,6 +10,12 @@
 
 Momento Frontend is the client-side application for the Momento social network. It provides a responsive experience for browsing feeds, creating posts, following users, writing reviews, chatting in real time, and using the Momento AI assistant. Built with the Next.js App Router, React Query, and Socket.io for live updates.
 
+## Architecture
+
+The diagram below shows how the full Momento app fits together: this frontend (Vercel), the backend API (Render), security, core capabilities, data layer, and external services.
+
+![Momento – Social Network Architecture](./momento-architecture.png)
+
 ---
 
 ## Features
@@ -164,11 +170,11 @@ momento-frontend/
 
 ## Deployment
 
-Deploy to any Node.js platform (e.g. Vercel, Netlify, Railway):
+This frontend is deployed on **Vercel**; the backend runs on **Render**. To deploy yourself:
 
-1. Set `NEXT_PUBLIC_API_URL` to your backend API URL.
-2. Ensure backend `CLIENT_URL` matches the frontend origin (for CORS and cookies).
-3. Use `npm run build` and `npm start`, or the platform’s Next.js preset.
+1. Set `NEXT_PUBLIC_API_URL` to your backend API URL (e.g. your Render backend URL + `/api`).
+2. Ensure backend `CLIENT_URL` matches the frontend origin (for CORS and session cookies).
+3. Use the platform’s Next.js preset (e.g. Vercel auto-detects Next.js) or `npm run build` and `npm start`.
 
 ---
 
