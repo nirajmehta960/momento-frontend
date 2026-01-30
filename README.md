@@ -12,7 +12,7 @@ Momento Frontend is the client-side application for the Momento social network. 
 
 ## Architecture
 
-The diagram below shows how the full Momento app fits together: this frontend (Vercel), the backend API (Render), security, core capabilities, data layer, and external services.
+The diagram below shows how the full Momento app fits together: the frontend (Vercel), the backend API (Render), security, core capabilities, data layer, and external services.
 
 ![Momento – Social Network Architecture](./momento-architecture.png)
 
